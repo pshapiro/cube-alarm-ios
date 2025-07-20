@@ -14,15 +14,17 @@ from abc import ABC, abstractmethod
 
 try:
     from .gan_decrypt import (
-        CubeMove, CubeEvent, MoveEvent, FaceletsEvent, BatteryEvent, HardwareEvent,
+        CubeMove, CubeEvent, MoveEvent, FaceletsEvent, BatteryEvent, HardwareEvent, SolvedEvent,
         CubeState, parse_move_enhanced, parse_facelets_event, parse_battery_event,
-        parse_hardware_event, decrypt_packet
+        parse_hardware_event, parse_solved_event, is_solved_packet, decrypt_packet,
+        is_move_packet, is_solved_state
     )
 except ImportError:
     from gan_decrypt import (
-        CubeMove, CubeEvent, MoveEvent, FaceletsEvent, BatteryEvent, HardwareEvent,
+        CubeMove, CubeEvent, MoveEvent, FaceletsEvent, BatteryEvent, HardwareEvent, SolvedEvent,
         CubeState, parse_move_enhanced, parse_facelets_event, parse_battery_event,
-        parse_hardware_event, decrypt_packet
+        parse_hardware_event, parse_solved_event, is_solved_packet, decrypt_packet,
+        is_move_packet, is_solved_state
     )
 
 
@@ -196,20 +198,24 @@ class GanGen3ProtocolDriver(GanProtocolDriver):
                         events.extend(ordered_events)
                     # else: Skip duplicate move packets with same serial (no action needed)
             elif len(event_message) == 19 and packet_type == 0x02:
-                pass  # Silently ignore status frames
+                # 19-byte 0x02 packets are FACELETS events (cube state)
+                # event_message is already decrypted by handle_notification
+                facelets_event = parse_facelets_event(event_message)
+                if facelets_event:
+                    events.append(facelets_event)
+                    
+                    # Check if cube is solved based on facelets
+                    if is_solved_state(facelets_event.facelets):
+                        print("🎉 Cube solved!")
+                        solved_event = SolvedEvent(serial=facelets_event.serial, timestamp=time.time())
+                        events.append(solved_event)
+                    
+                    await self.check_if_move_missed(conn)
             
             elif len(event_message) == 16:
                 # 16-byte packets are typically command responses or status
-                pass  # Silently ignore most 16-byte status packets
-                
                 # Try to parse as different event types
-                if packet_type == 0x03:  # Facelets state event
-                    facelets_event = parse_facelets_event(event_message)
-                    if facelets_event:
-                        events.append(facelets_event)
-                        await self.check_if_move_missed(conn)
-                        
-                elif packet_type == 0x04:  # Battery event
+                if packet_type == 0x04:  # Battery event
                     battery_event = parse_battery_event(event_message)
                     if battery_event:
                         events.append(battery_event)
@@ -218,9 +224,25 @@ class GanGen3ProtocolDriver(GanProtocolDriver):
                     hardware_event = parse_hardware_event(event_message)
                     if hardware_event:
                         events.append(hardware_event)
+                else:
+                    pass  # Silently ignore other 16-byte status packets
+                        
+            # Check for solved state packets (18-byte 0x01 packets)
+            elif is_solved_packet(event_message):
+                solved_event = parse_solved_event(event_message)
+                if solved_event:
+                    print(f"🎉 Cube solved! (serial: {solved_event.serial})")
+                    events.append(solved_event)
                         
             else:
-                print(f"❓ Unknown packet type: len={len(event_message)}, type=0x{packet_type:02x}")
+                # Debug: Log unknown packets with full details for analysis
+                packet_hex = event_message.hex()
+                print(f"❓ Unknown packet type: len={len(event_message)}, type=0x{packet_type:02x}, magic=0x{magic_byte:02x}")
+                print(f"   Packet: {packet_hex}")
+                
+                # Check if this might be a solved state or special event
+                if magic_byte == 0x55:
+                    print(f"   Valid magic byte - may be special event type 0x{packet_type:02x}")
 
         except Exception as e:
             print(f"❌ Error parsing event: {e}")

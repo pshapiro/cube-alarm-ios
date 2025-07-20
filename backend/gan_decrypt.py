@@ -20,6 +20,36 @@ _DECODED_KEYS = [
 FACE_NAMES = ['U', 'R', 'F', 'D', 'L', 'B']
 MOVE_NAMES = ['U', 'R', 'F', 'D', 'L', 'B', "U'", "R'", "F'", "D'", "L'", "B'"]
 
+# Solved state constant (from JavaScript implementation)
+SOLVED_STATE = "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB"
+
+# Corner and edge facelet mappings (from JavaScript implementation)
+CORNER_FACELET_MAP = [
+    [8, 9, 20],   # URF
+    [6, 18, 38],  # UFL
+    [0, 36, 47],  # ULB
+    [2, 45, 11],  # UBR
+    [29, 26, 15], # DFR
+    [27, 44, 24], # DLF
+    [33, 53, 42], # DBL
+    [35, 17, 51], # DRB
+]
+
+EDGE_FACELET_MAP = [
+    [5, 10],   # UR
+    [7, 19],   # UF
+    [3, 37],   # UL
+    [1, 46],   # UB
+    [32, 16],  # DR
+    [28, 25],  # DF
+    [30, 43],  # DL
+    [34, 52],  # DB
+    [23, 12],  # FR
+    [21, 41],  # FL
+    [50, 39],  # BL
+    [48, 14],  # BR
+]
+
 @dataclass
 class CubeMove:
     """Represents a single cube move with all metadata."""
@@ -124,6 +154,15 @@ class HardwareEvent(CubeEvent):
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
+
+@dataclass
+class SolvedEvent(CubeEvent):
+    """Cube solved state event."""
+    serial: int
+    
+    def __init__(self, serial: int, timestamp: Optional[float] = None):
+        super().__init__(timestamp or time.time(), "SOLVED")
+        self.serial = serial
 
 def derive_key_iv(mac_address: str) -> Tuple[bytes, bytes]:
     """Derive AES key and IV from MAC address (salt-based approach matching JavaScript)."""
@@ -255,14 +294,15 @@ def is_move_packet(clear: bytes) -> bool:
         return False
     # Only 0x01 packets are MOVE events (JavaScript: eventType == 0x01)
     # 0x02 packets are FACELETS events, not moves
-    if clear[1] == 0x01 and len(clear) == 16:
+    # Handle both 16-byte and 18-byte 0x01 packets
+    if clear[1] == 0x01 and len(clear) >= 16:
         try:
             view = ProtocolMessageView(clear)
             face_bits = view.get_bit_word(74, 6)  # Face at bit 74 (6 bits)
             face_map = [2, 32, 8, 1, 16, 4]  # JavaScript face mapping
             is_valid_move = face_bits in face_map
             if not is_valid_move:
-                print(f"❓ Unknown face bits: 0x{face_bits:02x}")
+                print(f"❓ Unknown face bits: 0x{face_bits:02x} (len={len(clear)})")
             return is_valid_move
         except Exception as e:
             print(f"❌ Error checking move packet: {e}")
@@ -573,13 +613,148 @@ def parse_battery_event(clear: bytes) -> Optional[BatteryEvent]:
     
     return BatteryEvent(battery_level=min(battery_level, 100))
 
-def parse_hardware_event(clear: bytes) -> Optional[HardwareEvent]:
-    """Parse a hardware info event from decrypted packet."""
-    if len(clear) < 10:
-        return None
+def parse_hardware_event(packet: bytes) -> Optional[HardwareEvent]:
+    """Parse hardware information event from packet."""
+    try:
+        clear = decrypt_packet(packet)
+        if len(clear) < 16:
+            return None
         
-    # Basic hardware event - full implementation would decode version strings
-    return HardwareEvent(
-        hardware_name="GAN356 i Carry 2",
-        gyro_supported=False
-    )
+        # Hardware events are typically longer packets with specific structure
+        # This is a placeholder - actual parsing would depend on packet format
+        return HardwareEvent()
+        
+    except Exception as e:
+        print(f"❌ Error parsing hardware event: {e}")
+        return None
+
+def parse_facelets_event(clear: bytes) -> Optional[FaceletsEvent]:
+    """Parse facelets state event from already-decrypted packet."""
+    try:
+        if len(clear) < 16:
+            return None
+        
+        # Check if this is a facelets packet (0x02 event type)
+        if clear[0] != 0x55 or clear[1] != 0x02:
+            return None
+            
+        # Extract serial number
+        view = ProtocolMessageView(clear)
+        serial = view.get_bit_word(24, 16, little_endian=True)
+        
+        # Parse cube state from packet (simplified - would need full implementation)
+        # For now, we'll extract what we can and build a basic facelets string
+        facelets = extract_facelets_from_packet(clear)
+        
+        return FaceletsEvent(
+            serial=serial,
+            facelets=facelets,
+            state=CubeState(CP=[0]*8, CO=[0]*8, EP=[0]*12, EO=[0]*12)  # Placeholder solved state
+        )
+        
+    except Exception as e:
+        print(f"❌ Error parsing facelets event: {e}")
+        return None
+
+def extract_facelets_from_packet(clear: bytes) -> str:
+    """Extract facelets string from decrypted packet using Gen3 protocol."""
+    if len(clear) < 19:
+        return SOLVED_STATE  # Default to solved if packet too short
+    
+    # Parse using Gen3 protocol (based on JavaScript implementation)
+    view = ProtocolMessageView(clear)
+    
+    # Corner/Edge Permutation/Orientation
+    cp = []
+    co = []
+    ep = []
+    eo = []
+    
+    # Corners - extract 7 values, calculate 8th
+    for i in range(7):
+        cp.append(view.get_bit_word(40 + i * 3, 3))
+        co.append(view.get_bit_word(61 + i * 2, 2))
+    cp.append(28 - sum(cp))  # 8th corner permutation
+    co.append((3 - (sum(co) % 3)) % 3)  # 8th corner orientation
+    
+    # Edges - extract 11 values, calculate 12th
+    for i in range(11):
+        ep.append(view.get_bit_word(77 + i * 4, 4))
+        eo.append(view.get_bit_word(121 + i, 1))
+    ep.append(66 - sum(ep))  # 12th edge permutation
+    eo.append((2 - (sum(eo) % 2)) % 2)  # 12th edge orientation
+    
+    # Convert to Kociemba facelets string
+    return to_kociemba_facelets(cp, co, ep, eo)
+
+def to_kociemba_facelets(cp: list, co: list, ep: list, eo: list) -> str:
+    """Convert Corner/Edge Permutation/Orientation cube state to Kociemba facelets string.
+    
+    Based on JavaScript implementation from gan-web-bluetooth library.
+    
+    Args:
+        cp: Corner Permutation (8 values)
+        co: Corner Orientation (8 values)
+        ep: Edge Permutation (12 values)
+        eo: Edge Orientation (12 values)
+    
+    Returns:
+        54-character facelets string in Kociemba notation
+    """
+    faces = "URFDLB"
+    facelets = []
+    
+    # Initialize facelets array with face centers
+    for i in range(54):
+        facelets.append(faces[i // 9])
+    
+    # Apply corner permutations and orientations
+    for i in range(8):
+        for p in range(3):
+            facelet_idx = CORNER_FACELET_MAP[i][(p + co[i]) % 3]
+            corner_face_idx = CORNER_FACELET_MAP[cp[i]][p] // 9
+            facelets[facelet_idx] = faces[corner_face_idx]
+    
+    # Apply edge permutations and orientations
+    for i in range(12):
+        for p in range(2):
+            facelet_idx = EDGE_FACELET_MAP[i][(p + eo[i]) % 2]
+            edge_face_idx = EDGE_FACELET_MAP[ep[i]][p] // 9
+            facelets[facelet_idx] = faces[edge_face_idx]
+    
+    return ''.join(facelets)
+
+def is_solved_state(facelets: str) -> bool:
+    """Check if facelets string represents solved state."""
+    return facelets == SOLVED_STATE
+
+def is_solved_packet(packet: bytes) -> bool:
+    """Check if packet represents a solved state event."""
+    try:
+        clear = decrypt_packet(packet)
+        if len(clear) < 16:
+            return False
+        
+        # 18-byte packets with event type 0x01 appear to be solved state notifications
+        # These occur when returning faces to solved position (e.g., U then U')
+        return clear[0] == 0x55 and clear[1] == 0x01 and len(clear) == 18
+        
+    except Exception:
+        return False
+
+def parse_solved_event(packet: bytes) -> Optional[SolvedEvent]:
+    """Parse solved state event from 18-byte 0x01 packet."""
+    try:
+        clear = decrypt_packet(packet)
+        if not is_solved_packet(packet):
+            return None
+        
+        # Extract serial number from the packet (similar to move packets)
+        view = ProtocolMessageView(clear)
+        serial = view.get_bit_word(56, 16, little_endian=True)
+        
+        return SolvedEvent(serial=serial)
+        
+    except Exception as e:
+        print(f"❌ Error parsing solved event: {e}")
+        return None
