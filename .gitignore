@@ -7,7 +7,6 @@ diagnose_cube_type.py
 diagnose_packets.py
 extract_real_mac.py
 find_encryption_key.py
-requirements.txt
 test_enhanced_cube.py
 test_enhanced_moves.py
 test_js_comparison.py
@@ -16,3 +15,4 @@ test_simple_moves.py
 test_simple.py
 test_with_real_mac.py
 test_working_decryption.py
+/__pycache__/
