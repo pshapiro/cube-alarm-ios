@@ -268,6 +268,9 @@ def parse_move_enhanced(clear: bytes) -> CubeMove:
     
     # Debug: show decrypted packet header
     print(f"📦 Decrypted packet: {clear.hex()}")
+    # Debug individual bytes for move analysis
+    if len(clear) >= 6:
+        print(f"📊 raw bytes slice: b3={clear[3]:02x}  b4={clear[4]:02x}  b5={clear[5]:02x}")
     
     # Handle Gen3 header (0x55) – first byte header, second byte packet type 0x01 "move".
     if clear and clear[0] == 0x55:
