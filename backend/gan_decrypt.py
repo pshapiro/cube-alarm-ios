@@ -250,12 +250,22 @@ def is_move_packet(clear: bytes) -> bool:
     if len(clear) < 16:
         return False
 
-    # 16-byte frames are command/status – not moves
+    # At least 16 bytes required for any valid packet we parse
     if len(clear) < 16:
         return False
-    if len(clear) == 16:
-        return False
-    # For 0x01 packets (bit-field), legacy heuristic: byte3 within 0-11
+    # For Gen3 16-byte packets with event type 0x01 use JavaScript-style face detection
+    if clear[1] == 0x01 and len(clear) == 16:
+        try:
+            view = ProtocolMessageView(clear)
+            face_bits = view.get_bit_word(74, 6)  # Face at bit 74 (6 bits)
+            face_map = [2, 32, 8, 1, 16, 4]  # JavaScript face mapping
+            is_valid_move = face_bits in face_map
+            if not is_valid_move:
+                print(f"❓ Unknown face bits: 0x{face_bits:02x}")
+            return is_valid_move
+        except Exception as e:
+            print(f"❌ Error checking move packet: {e}")
+            return False
     if clear[1] == 0x01:
         return len(clear) > 3 and 0 <= clear[3] <= 11
     # For 0x02 packets (simple table), byte5 within 0-11 indicates a move
@@ -263,14 +273,40 @@ def is_move_packet(clear: bytes) -> bool:
         return len(clear) > 5 and 0 <= clear[5] <= 11
     return False
 
+# Simple code map derived from real cube capture (16-byte 0x01 packets)
+# Updated with current session codes (cube state dependent)
+_SIMPLE_CODE_MAP = {
+    # Original codes (from earlier session)
+    0x0c: "U", 0x0e: "U'",
+    0x0f: "R", 0x10: "R'",
+    0x15: "L", 0x16: "L'",
+    0x17: "D", 0x18: "D'",
+    0x19: "B", 0x1b: "B'",
+    0x1d: "F", 0x21: "F'",
+    # Current session codes (2025-07-20)
+    0xbb: "U",   # Current U clockwise
+    0xbd: "U'",  # Current U counter-clockwise
+    0xbf: "R",   # Current R clockwise
+    0xc1: "R'",  # Current R counter-clockwise (inferred)
+    0xc5: "L",   # Current L clockwise
+    0xc7: "L'",  # Current L counter-clockwise
+    0xc9: "D",   # Current D clockwise
+    0xcd: "D'",  # Current D counter-clockwise
+    0xd1: "B",   # Current B clockwise
+    0xd5: "B'",  # Current B counter-clockwise
+    0xd9: "F",   # Current F clockwise
+    0xe7: "F'",  # Current F counter-clockwise
+}
+
+
 def parse_move_enhanced(clear: bytes) -> CubeMove:
     """Enhanced move parser that extracts all move metadata including serial numbers."""
     
     # Debug: show decrypted packet header
-    print(f"📦 Decrypted packet: {clear.hex()}")
+    # print(f"📦 Decrypted packet: {clear.hex()}")
     # Debug individual bytes for move analysis
-    if len(clear) >= 6:
-        print(f"📊 raw bytes slice: b3={clear[3]:02x}  b4={clear[4]:02x}  b5={clear[5]:02x}")
+    # if len(clear) >= 6:
+    #     print(f"📊 raw bytes slice: b3={clear[3]:02x}  b4={clear[4]:02x}  b5={clear[5]:02x}")
     
     # Handle Gen3 header (0x55) – first byte header, second byte packet type 0x01 "move".
     if clear and clear[0] == 0x55:
@@ -286,6 +322,32 @@ def parse_move_enhanced(clear: bytes) -> CubeMove:
     if len(clear) < 16:
         raise ValueError(f"Message too short for move parsing: {len(clear)} bytes")
     
+    # JavaScript-style parsing for 16-byte packets (event type 0x01)
+    if clear[1] == 0x01 and len(clear) == 16:
+        view = ProtocolMessageView(clear)
+        
+        # Extract direction and face using JavaScript bit positions
+        direction = view.get_bit_word(72, 2)  # Direction at bit 72 (2 bits)
+        face_bits = view.get_bit_word(74, 6)  # Face at bit 74 (6 bits)
+        
+        # JavaScript face mapping: [2, 32, 8, 1, 16, 4] -> [U, R, F, D, L, B]
+        face_map = [2, 32, 8, 1, 16, 4]
+        try:
+            face = face_map.index(face_bits)
+            face_char = "URFDLB"[face]
+            direction_char = " '"[direction] if direction < 2 else "?"
+            move_str = (face_char + direction_char).strip()
+            
+            # Extract serial and timestamp
+            cube_timestamp = view.get_bit_word(24, 32, little_endian=True)
+            serial = view.get_bit_word(56, 16, little_endian=True)
+            
+            return CubeMove(face=face, direction=direction, move=move_str,
+                            serial=serial, local_timestamp=time.time(), cube_timestamp=cube_timestamp)
+        except ValueError:
+            print(f"❓ Unknown face bits: 0x{face_bits:02x}")
+            return None
+
     # Special simple-table parsing for variant that uses eventType 0x02 with move byte
     if clear[1] == 0x02:
         move_byte = clear[5]
@@ -301,7 +363,7 @@ def parse_move_enhanced(clear: bytes) -> CubeMove:
         face = "URFDLB".index(move_str[0])
         direction = 1 if "'" in move_str else 0
         serial = int.from_bytes(clear[2:4], "little")
-        print(f"🆕 Parsed 0x02 variant: serial={serial}, move={move_str}")
+        # print(f"🆕 Parsed 0x02 variant: serial={serial}, move={move_str}")  # Too verbose
         return CubeMove(face=face, direction=direction, move=move_str,
                         serial=serial, local_timestamp=time.time(), cube_timestamp=None)
 

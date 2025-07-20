@@ -32,6 +32,12 @@ RECONNECT_DELAY = 5
 SCAN_TIMEOUT = 10
 MAX_RECONNECT_ATTEMPTS = 3
 
+# Manual override mapping of device names (or address fragments) to real MAC
+_REAL_MAC_OVERRIDE: dict[str, str] = {
+    "GANicV2S_969C": "CF:AA:79:C9:96:9C",  # User's cube
+}
+
+
 def _log(msg: str):
     """Enhanced logging with timestamps."""
     timestamp = time.strftime("%H:%M:%S")
@@ -73,7 +79,7 @@ async def _handle_cube_event(event: CubeEvent) -> None:
     
     if isinstance(event, MoveEvent):
         move_dict = event.move.to_dict()
-        _log(f"Move: {event.move.move} (serial: {event.move.serial})")
+        _log(f"🔄 Move: {event.move.move} (serial: {event.move.serial})")
         
         # Emit to Socket.IO if available
         if socketio:
@@ -88,7 +94,7 @@ async def _handle_cube_event(event: CubeEvent) -> None:
         
         # Check for solve after move
         if _connection and _connection.is_solved():
-            _log("🎉 Cube solved!")
+            # _log("🎉 Cube solved!")  # DISABLED - false positives
             if socketio:
                 socketio.emit("solved", {"timestamp": time.time()})
             
@@ -101,22 +107,17 @@ async def _handle_cube_event(event: CubeEvent) -> None:
     
     elif isinstance(event, FaceletsEvent):
         _log(f"Facelets update (serial: {event.serial}) – solved={event.state.is_solved()}")
-        if socketio:
-            socketio.emit("facelets", {
-                "serial": event.serial,
-                "facelets": event.facelets,
-                "is_solved": event.state.is_solved()
-            })
-        # Trigger solve callbacks if cube is solved
-        if event.state.is_solved():
-            _log("🎉 Cube solved (facelets event)!")
-            if socketio:
-                socketio.emit("solved", {"timestamp": time.time()})
-            for callback in _solve_callbacks:
-                try:
-                    callback()
-                except Exception as e:
-                    _log(f"❌ Error in solve callback: {e}")
+        
+        # TODO: Fix false positive solved detection - DISABLED
+        # if event.state.is_solved():
+        #     _log("🎉 Cube solved!")
+        #     if socketio:
+        #         socketio.emit("solved", {"timestamp": time.time()})
+        #     for callback in _solve_callbacks:
+        #         try:
+        #             callback()
+        #         except Exception as e:
+        #             _log(f"❌ Error in solve callback: {e}")
     
     else:
         _log(f"Event: {event.event_type}")
@@ -155,8 +156,8 @@ async def _notify_handler(_, data: bytes) -> None:
     if not _connection or not _key_iv:
         return
     
-    # Log packet info for debugging
-    _log(f"📦 Received packet: {len(data)} bytes - {data.hex()[:32]}{'...' if len(data) > 16 else ''}")
+    # Log packet info for debugging (disabled for cleaner output)
+    # _log(f"📦 Received packet: {len(data)} bytes - {data.hex()[:32]}{'...' if len(data) > 16 else ''}")
     
     # Handle all packet lengths, not just move packets
     try:
@@ -227,6 +228,13 @@ async def _discover_cube(timeout: int = SCAN_TIMEOUT):
             if mac and mac[:2] != "00":
                 _log(f"🐝 Manufacturer MAC captured: {mac} for {d.address}")
                 return d, mac
+
+    # Override: use hardcoded mapping if available
+    for d in devices:
+        if d.name and d.name in _REAL_MAC_OVERRIDE:
+            mac = _REAL_MAC_OVERRIDE[d.name]
+            _log(f"🛠 Using override MAC for {d.name}: {mac}")
+            return d, mac
 
     # Fallback: if we at least discovered a GAN device by name but did not capture a manufacturer MAC,
     # return that device with real_mac = None so that the code will still attempt to connect using the

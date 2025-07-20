@@ -159,7 +159,6 @@ class GanGen3ProtocolDriver(GanProtocolDriver):
         
         # Log packet details for debugging
         packet_type = event_message[0] if len(event_message) > 0 else 0
-        print(f"📊 Processing packet: len={len(event_message)}, type=0x{packet_type:02x}, data={event_message.hex()[:32]}")
         
         try:
             # Import here to avoid circular imports
@@ -189,9 +188,13 @@ class GanGen3ProtocolDriver(GanProtocolDriver):
                 ordered_events = await self.evict_move_buffer(conn)
                 events.extend(ordered_events)
                 
+            # Ignore 19-byte 0x02 status/telemetry frames – they're not moves
+            elif len(event_message) == 19 and packet_type == 0x02:
+                pass  # Silently ignore status frames
+            
             elif len(event_message) == 16:
                 # 16-byte packets are typically command responses or status
-                print(f"📋 Command response/status packet: {event_message.hex()}")
+                pass  # Silently ignore most 16-byte status packets
                 
                 # Try to parse as different event types
                 if packet_type == 0x03:  # Facelets state event
@@ -212,7 +215,7 @@ class GanGen3ProtocolDriver(GanProtocolDriver):
                         
             else:
                 print(f"❓ Unknown packet type: len={len(event_message)}, type=0x{packet_type:02x}")
-                    
+
         except Exception as e:
             print(f"❌ Error parsing event: {e}")
             print(f"   Packet: {event_message.hex()}")
