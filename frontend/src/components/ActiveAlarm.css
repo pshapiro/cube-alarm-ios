@@ -1,0 +1,210 @@
+.active-alarm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(239, 68, 68, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: alarm-pulse 1s infinite;
+}
+
+@keyframes alarm-pulse {
+  0%, 100% { background: rgba(239, 68, 68, 0.95); }
+  50% { background: rgba(239, 68, 68, 0.85); }
+}
+
+.active-alarm-container {
+  background: #fff;
+  border-radius: 20px;
+  padding: 3rem;
+  text-align: center;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  animation: alarm-bounce 0.5s ease-out;
+}
+
+@keyframes alarm-bounce {
+  0% { transform: scale(0.8) translateY(-50px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.alarm-icon {
+  margin-bottom: 1.5rem;
+}
+
+.alarm-emoji {
+  font-size: 4rem;
+  animation: shake 0.5s infinite;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.alarm-info {
+  margin-bottom: 2rem;
+}
+
+.alarm-title {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.alarm-time {
+  font-size: 1.5rem;
+  color: #6b7280;
+  margin-bottom: 0.5rem;
+}
+
+.alarm-elapsed {
+  font-size: 1rem;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+.cube-solve-section {
+  margin-bottom: 2rem;
+}
+
+.cube-instruction {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1.5rem;
+  background: #f3f4f6;
+  border-radius: 12px;
+}
+
+.cube-icon {
+  font-size: 3rem;
+  animation: rotate-cube 2s infinite linear;
+}
+
+@keyframes rotate-cube {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.cube-instruction p {
+  font-size: 1.2rem;
+  color: #374151;
+  margin: 0;
+  font-weight: 500;
+}
+
+.cube-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.cube-status.solved {
+  background: #d1fae5;
+  color: #065f46;
+  border: 2px solid #10b981;
+}
+
+.cube-status.scrambled {
+  background: #fef3c7;
+  color: #92400e;
+  border: 2px solid #f59e0b;
+}
+
+.status-icon {
+  font-size: 1.3rem;
+}
+
+.manual-stop-section {
+  margin-bottom: 1rem;
+}
+
+.stop-alarm-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  font-size: 1.2rem;
+  font-weight: bold;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.stop-alarm-btn:hover {
+  background: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+}
+
+.emergency-stop {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.emergency-stop-btn {
+  background: #6b7280;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 0.5rem;
+}
+
+.emergency-stop-btn:hover {
+  background: #4b5563;
+}
+
+.emergency-note {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin: 0;
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .active-alarm-container {
+    padding: 2rem;
+    margin: 1rem;
+  }
+  
+  .alarm-title {
+    font-size: 1.5rem;
+  }
+  
+  .alarm-time {
+    font-size: 1.2rem;
+  }
+  
+  .cube-instruction p {
+    font-size: 1rem;
+  }
+  
+  .cube-icon {
+    font-size: 2.5rem;
+  }
+  
+  .alarm-emoji {
+    font-size: 3rem;
+  }
+}
