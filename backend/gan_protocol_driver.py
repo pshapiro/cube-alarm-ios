@@ -157,8 +157,9 @@ class GanGen3ProtocolDriver(GanProtocolDriver):
         if len(event_message) < 16:
             return events
         
-        # Log packet details for debugging
-        packet_type = event_message[0] if len(event_message) > 0 else 0
+        # Extract packet type from byte 1 (JavaScript: eventType = msg.getBitWord(8, 8))
+        packet_type = event_message[1] if len(event_message) > 1 else 0
+        magic_byte = event_message[0] if len(event_message) > 0 else 0
         
         try:
             # Import here to avoid circular imports
@@ -174,21 +175,26 @@ class GanGen3ProtocolDriver(GanProtocolDriver):
                 await self.check_if_move_missed(conn)
 
             if is_move_packet(event_message):
-                print(f"🔄 Detected move packet")
                 move = parse_move_enhanced(event_message)
-                move_event = MoveEvent(move)
-                
-                # Add to buffer for ordering
-                self.move_buffer.append(move_event)
+                if move:
+                    # Check for duplicate serial numbers (like JavaScript implementation)
+                    if move.serial != self.serial:
+                        # Update serial tracking (like JavaScript: this.serial = serial)
+                        self.last_serial = self.serial
+                        self.serial = move.serial
+                        self.last_local_timestamp = time.time()
+                        move_event = MoveEvent(move, timestamp=time.time())
+                    
+                        # Add to buffer for ordering
+                        self.move_buffer.append(move_event)
 
-                # Always emit the move immediately so callers get timely updates
-                events.append(move_event)
-                
-                # Additionally evict any subsequently ordered moves (fills gaps)
-                ordered_events = await self.evict_move_buffer(conn)
-                events.extend(ordered_events)
-                
-            # Ignore 19-byte 0x02 status/telemetry frames – they're not moves
+                        # Always emit the move immediately so callers get timely updates
+                        events.append(move_event)
+                        
+                        # Additionally evict any subsequently ordered moves (fills gaps)
+                        ordered_events = await self.evict_move_buffer(conn)
+                        events.extend(ordered_events)
+                    # else: Skip duplicate move packets with same serial (no action needed)
             elif len(event_message) == 19 and packet_type == 0x02:
                 pass  # Silently ignore status frames
             

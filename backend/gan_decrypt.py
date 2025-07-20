@@ -253,7 +253,8 @@ def is_move_packet(clear: bytes) -> bool:
     # At least 16 bytes required for any valid packet we parse
     if len(clear) < 16:
         return False
-    # For Gen3 16-byte packets with event type 0x01 use JavaScript-style face detection
+    # Only 0x01 packets are MOVE events (JavaScript: eventType == 0x01)
+    # 0x02 packets are FACELETS events, not moves
     if clear[1] == 0x01 and len(clear) == 16:
         try:
             view = ProtocolMessageView(clear)
@@ -266,11 +267,8 @@ def is_move_packet(clear: bytes) -> bool:
         except Exception as e:
             print(f"❌ Error checking move packet: {e}")
             return False
-    if clear[1] == 0x01:
-        return len(clear) > 3 and 0 <= clear[3] <= 11
-    # For 0x02 packets (simple table), byte5 within 0-11 indicates a move
-    if clear[1] == 0x02:
-        return len(clear) > 5 and 0 <= clear[5] <= 11
+    
+    # No other packet types are moves
     return False
 
 # Simple code map derived from real cube capture (16-byte 0x01 packets)
