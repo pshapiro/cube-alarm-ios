@@ -210,12 +210,14 @@ class AlarmManager:
     def _start_alarm_sound(self, alarm_id: str):
         """Start playing alarm sound locally using Pi Audio Manager."""
         try:
-            from pi_audio import start_alarm_sound
+            from pi_audio import PiAudioManager
             
             alarm = self.alarms.get(alarm_id)
             alarm_label = alarm.label if alarm else "Unknown Alarm"
             
-            success = start_alarm_sound(alarm_id, alarm_label)
+            # Create PiAudioManager instance and start alarm sound
+            audio_manager = PiAudioManager()
+            success = audio_manager.play_alarm_sound(alarm_id)
             if success:
                 logger.info(f"🔊 Started alarm sound for: {alarm_label}")
             else:
@@ -227,12 +229,14 @@ class AlarmManager:
     def _stop_alarm_sound(self, alarm_id: str):
         """Stop playing alarm sound locally using Pi Audio Manager."""
         try:
-            from pi_audio import stop_alarm_sound
+            from pi_audio import PiAudioManager
             
             alarm = self.alarms.get(alarm_id)
             alarm_label = alarm.label if alarm else "Unknown Alarm"
             
-            success = stop_alarm_sound(alarm_id)
+            # Create PiAudioManager instance and stop alarm sound
+            audio_manager = PiAudioManager()
+            success = audio_manager.stop_alarm_sound(alarm_id)
             if success:
                 logger.info(f"🔇 Stopped alarm sound for: {alarm_label}")
             else:
