@@ -25,8 +25,7 @@ from gan_decrypt import CubeMove, SolvedEvent
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Global cube worker instance
-cube_worker = None
+# Smart BLE Connection Strategy - no global cube worker needed
 
 @dataclass
 class Alarm:
@@ -125,6 +124,9 @@ class AlarmManager:
         
         logger.info(f"⏰ Alarm stopped: {alarm.label} {'by cube solve' if solved_by_cube else 'manually'}")
         
+        # Check if we should stop BLE worker to save battery
+        self._check_ble_worker_shutdown()
+        
         # Emit to all connected clients
         socketio.emit('alarm_stopped', {
             'alarm': asdict(alarm),
@@ -174,20 +176,58 @@ class AlarmManager:
             'timestamp': datetime.now().isoformat()
         })
     
+    def _pre_alarm_ble_activation(self, alarm_id: str):
+        """Activate BLE worker 10 seconds before alarm to ensure connection."""
+        logger.info(f"🔋 Pre-alarm BLE activation for alarm {alarm_id}")
+        
+        # Import BLE worker control functions
+        from ble_worker import start_ble_worker, is_ble_worker_running
+        
+        if not is_ble_worker_running():
+            logger.info("🚀 Starting BLE worker for upcoming alarm...")
+            start_ble_worker(socketio)
+        else:
+            logger.info("⚠️ BLE worker already running")
+    
+    def _check_ble_worker_shutdown(self):
+        """Check if BLE worker should be stopped to save battery."""
+        # Import BLE worker control functions
+        from ble_worker import stop_ble_worker, is_ble_worker_running
+        
+        # If no active alarms and BLE worker is running, stop it to save battery
+        if not self.active_alarms and is_ble_worker_running():
+            logger.info("🔋 No active alarms - stopping BLE worker to save battery")
+            stop_ble_worker()
+        elif self.active_alarms:
+            logger.info(f"🔋 Keeping BLE worker running - {len(self.active_alarms)} active alarms")
+    
     def _schedule_alarm(self, alarm: Alarm):
         """Schedule an alarm with the scheduler."""
         # Clear existing schedule for this alarm
         self._unschedule_alarm(alarm)
         
+        # Calculate pre-alarm time (10 seconds before alarm)
+        from datetime import datetime, timedelta
+        alarm_time = datetime.strptime(alarm.time, "%H:%M")
+        pre_alarm_time = alarm_time - timedelta(seconds=10)
+        pre_alarm_time_str = pre_alarm_time.strftime("%H:%M:%S")
+        
         # Schedule for each day
         for day in alarm.days:
+            # Schedule pre-alarm BLE activation (10 seconds before)
+            getattr(schedule.every(), day.lower()).at(pre_alarm_time_str).do(
+                self._pre_alarm_ble_activation, alarm.id
+            ).tag(f"{alarm.id}_pre")
+            
+            # Schedule actual alarm
             getattr(schedule.every(), day.lower()).at(alarm.time).do(
                 self.trigger_alarm, alarm.id
             ).tag(alarm.id)
     
     def _unschedule_alarm(self, alarm: Alarm):
         """Remove alarm from scheduler."""
-        schedule.clear(alarm.id)
+        schedule.clear(alarm.id)  # Clear main alarm
+        schedule.clear(f"{alarm.id}_pre")  # Clear pre-alarm BLE activation
 
 # Global instances
 app = Flask(__name__)
@@ -313,13 +353,10 @@ def handle_disconnect():
 
 # Cube Worker Integration
 
-def run_cube_worker():
-    """Run the cube worker in a separate thread."""
-    global cube_worker
-    cube_worker = GanCubeWorker()
-    
+def setup_ble_callbacks():
+    """Set up BLE callbacks for smart connection strategy (no continuous worker)."""
     # Import BLE worker functions to register callbacks directly
-    from ble_worker import add_solve_callback, add_move_callback, add_connection_callback, run
+    from ble_worker import add_solve_callback, add_move_callback, add_connection_callback
     
     # Set up event callbacks directly with BLE worker (bypass cube worker)
     def on_move_direct(move_dict):
@@ -360,31 +397,10 @@ def run_cube_worker():
     add_solve_callback(on_solved_direct)
     add_connection_callback(on_connected_direct)
     
-    # Set up cube worker callbacks for compatibility
-    def on_move(move: CubeMove):
-        alarm_manager.on_cube_move(move)
-        
-    def on_solved(solved_event: SolvedEvent):
-        logger.info(f"🎯 DEBUG: Received solved event in alarm server: {solved_event}")
-        alarm_manager.on_cube_solved()
-        
-    def on_connected(connected: bool):
-        alarm_manager.on_cube_connected(connected)
-    
-    # Set callbacks on cube worker for compatibility
-    cube_worker.on_move = on_move
-    cube_worker.on_solved = on_solved
-    cube_worker.on_connected = on_connected
-    
-    # Run BLE worker directly instead of through cube worker
-    logger.info("🎯 DEBUG: Starting BLE worker directly")
-    try:
-        run(socketio)  # Run BLE worker directly with socketio
-        logger.info("🎯 DEBUG: BLE worker completed")
-    except Exception as e:
-        logger.error(f"BLE worker error: {e}")
-        import traceback
-        logger.error(f"BLE worker traceback: {traceback.format_exc()}")
+    # Smart BLE Connection Strategy: Don't start BLE worker immediately
+    # It will be started automatically 10 seconds before each alarm
+    logger.info("🔋 Smart BLE strategy: BLE worker will start only when needed for alarms")
+    logger.info("💡 This saves cube battery by avoiding continuous polling")
 
 def run_scheduler():
     """Run the alarm scheduler in a separate thread."""
@@ -393,16 +409,16 @@ def run_scheduler():
         threading.Event().wait(1)
 
 if __name__ == '__main__':
-    # Start cube worker thread
-    cube_thread = threading.Thread(target=run_cube_worker, daemon=True)
-    cube_thread.start()
+    # Smart BLE Connection Strategy: Setup callbacks but don't start BLE worker
+    # BLE worker will be started automatically 10 seconds before each alarm
+    setup_ble_callbacks()
     
     # Start scheduler thread
     scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
     scheduler_thread.start()
     
     logger.info("🚀 Starting Rubik's Cube Alarm Server...")
-    logger.info("📱 Cube worker started")
+    logger.info("🔋 Smart BLE strategy enabled - BLE worker starts only when needed")
     logger.info("⏰ Scheduler started")
     logger.info("🌐 API server starting on http://localhost:5001")
     

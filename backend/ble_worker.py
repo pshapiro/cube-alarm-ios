@@ -2,6 +2,7 @@ from __future__ import annotations
 import os
 import asyncio
 import time
+import threading
 from typing import Optional, Callable, List
 
 from bleak import BleakScanner, BleakClient, BleakError
@@ -467,6 +468,138 @@ async def _ble_loop() -> None:
         await asyncio.sleep(RECONNECT_DELAY)
 
 # Public API -----------------------------------------------------
+
+# Global variables for BLE worker control
+_ble_task: Optional[asyncio.Task] = None
+_ble_loop_running = False
+_stop_ble_event = asyncio.Event()
+
+def start_ble_worker(socketio_ref: Optional[SocketIO] = None) -> bool:
+    """Start the BLE worker in a separate thread. Returns True if started successfully."""
+    global socketio, _ble_loop_running
+    
+    if _ble_loop_running:
+        _log("⚠️ BLE worker already running")
+        return True
+    
+    socketio = socketio_ref
+    _log("🚀 Starting BLE worker for alarm...")
+    
+    def run_ble_worker():
+        """Run BLE worker in thread."""
+        global _ble_loop_running
+        try:
+            _ble_loop_running = True
+            _stop_ble_event.clear()
+            asyncio.run(_ble_loop_with_stop())
+        except Exception as e:
+            _log(f"❌ BLE worker error: {e}")
+        finally:
+            _ble_loop_running = False
+    
+    # Start BLE worker in daemon thread
+    ble_thread = threading.Thread(target=run_ble_worker, daemon=True)
+    ble_thread.start()
+    
+    return True
+
+def stop_ble_worker() -> bool:
+    """Stop the BLE worker to save battery. Returns True if stopped successfully."""
+    global _ble_loop_running
+    
+    if not _ble_loop_running:
+        _log("⚠️ BLE worker not running")
+        return True
+    
+    _log("🛑 Stopping BLE worker to save battery...")
+    _stop_ble_event.set()
+    
+    # Give it a moment to stop gracefully
+    import time
+    time.sleep(1)
+    
+    return True
+
+def is_ble_worker_running() -> bool:
+    """Check if BLE worker is currently running."""
+    return _ble_loop_running
+
+async def _ble_loop_with_stop():
+    """BLE loop that can be stopped via _stop_ble_event."""
+    global _connection
+    
+    _log("🚀 Starting enhanced GAN cube BLE worker...")
+    _log(f"📡 Target service: {SERVICE_UUID}")
+    _log(f"📊 State characteristic: {STATE_CHAR_UUID}")
+    _log(f"📤 Command characteristic: {COMMAND_CHAR_UUID}")
+    
+    while not _stop_ble_event.is_set():
+        try:
+            # Scan for cube
+            device, real_mac = await _discover_cube()
+            if not device:
+                _log(f"⏳ No cube found. Retrying in {SCAN_TIMEOUT}s...")
+                try:
+                    await asyncio.wait_for(_stop_ble_event.wait(), timeout=SCAN_TIMEOUT)
+                    break  # Stop event was set
+                except asyncio.TimeoutError:
+                    continue  # Continue scanning
+            
+            # Connect to cube
+            _connection = await _connect_to_cube(device, real_mac)
+            if not _connection:
+                _log(f"⏳ Connection failed. Retrying in {RECONNECT_DELAY}s...")
+                try:
+                    await asyncio.wait_for(_stop_ble_event.wait(), timeout=RECONNECT_DELAY)
+                    break  # Stop event was set
+                except asyncio.TimeoutError:
+                    continue  # Continue trying to connect
+            
+            # Keep connection alive and process reset requests
+            try:
+                while not _stop_ble_event.is_set():
+                    # Check for reset requests
+                    await _process_reset_requests()
+                    
+                    # Sleep with stop check
+                    try:
+                        await asyncio.wait_for(_stop_ble_event.wait(), timeout=1.0)
+                        break  # Stop event was set
+                    except asyncio.TimeoutError:
+                        continue  # Keep running
+                        
+            except asyncio.CancelledError:
+                _log("🛑 BLE loop cancelled")
+                break
+        except Exception as e:
+            _log(f"❌ BLE loop error: {e}")
+            if _stop_ble_event.is_set():
+                break
+            try:
+                await asyncio.wait_for(_stop_ble_event.wait(), timeout=RECONNECT_DELAY)
+                break  # Stop event was set
+            except asyncio.TimeoutError:
+                continue  # Continue with error recovery
+        finally:
+            # Clean up connection
+            if _connection:
+                try:
+                    await _connection.disconnect()
+                except Exception as e:
+                    _log(f"❌ Error during cleanup: {e}")
+                _connection = None
+        
+        if _stop_ble_event.is_set():
+            break
+        
+        _log(f"⏳ Reconnecting in {RECONNECT_DELAY}s...")
+        try:
+            await asyncio.wait_for(_stop_ble_event.wait(), timeout=RECONNECT_DELAY)
+            break  # Stop event was set
+        except asyncio.TimeoutError:
+            continue  # Continue reconnection loop
+    
+    _log("🛑 BLE worker stopped")
 
 def run(socketio_ref: Optional[SocketIO] = None) -> None:
     """Enhanced blocking call that starts the BLE listener with robust error handling."""
