@@ -70,10 +70,11 @@ class PiAudioManager:
     def _command_exists(self, command: str) -> bool:
         """Check if a command exists in PATH."""
         try:
-            subprocess.run(['which', command], check=True, 
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            return True
-        except subprocess.CalledProcessError:
+            # Use shutil.which instead of subprocess which command
+            # This works in systemd environments where 'which' may not be available
+            import shutil
+            return shutil.which(command) is not None
+        except Exception:
             return False
     
     def start_alarm_sound(self, alarm_id: str, alarm_label: str = "Alarm") -> bool:
