@@ -81,12 +81,12 @@ const ActiveAlarm: React.FC<ActiveAlarmProps> = ({
     }
   };
 
-  // Start alarm sound when component mounts
+  // Frontend alarm sound disabled - Pi handles alarm audio
   useEffect(() => {
-    if (audioContext && !cubeSolved) {
-      playAlarmSound();
-    }
+    console.log('🔊 ActiveAlarm: Frontend alarm sound disabled - Pi handles audio');
+    // No frontend alarm sound - Pi backend plays alarm locally
     return () => {
+      // Cleanup only
       stopAlarmSound();
     };
   }, [audioContext]);
