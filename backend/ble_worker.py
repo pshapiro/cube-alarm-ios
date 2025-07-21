@@ -224,7 +224,6 @@ async def _handle_cube_event(event: CubeEvent) -> None:
         _log(f"Event: {event.event_type}")
         
         # Check if we should ignore solved events immediately after connection
-        global _connection_time
         if _connection_time and (time.time() - _connection_time) < _CONNECTION_SOLVED_DELAY:
             _log(f"🚫 Ignoring solved event - too soon after connection ({time.time() - _connection_time:.1f}s < {_CONNECTION_SOLVED_DELAY}s)")
             return
@@ -376,7 +375,7 @@ async def _discover_cube(timeout: int = SCAN_TIMEOUT):
 
 async def _connect_to_cube(device, real_mac: Optional[str]) -> Optional[GanCubeConnection]:
     """Enhanced cube connection with retry logic."""
-    global _key_iv
+    global _key_iv, _connection_time
     
     _log(f"🔗 Connecting to {device.name} [{device.address}]...")
     mac_for_key = real_mac or device.address
@@ -423,7 +422,6 @@ async def _connect_to_cube(device, real_mac: Optional[str]) -> Optional[GanCubeC
             _log("✅ Connected successfully! Move the cube to see events.")
             
             # Track connection time to prevent false solved detection
-            global _connection_time
             _connection_time = time.time()
             
             # Call connection callbacks to notify connected status
