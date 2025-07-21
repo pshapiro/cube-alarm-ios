@@ -28,7 +28,7 @@ _solve_callbacks: List[Callable[[], None]] = []
 _move_callbacks: List[Callable[[dict], None]] = []
 _connection_callbacks: List[Callable[[bool], None]] = []
 _connection_time: Optional[float] = None  # Track when cube was connected
-_CONNECTION_SOLVED_DELAY = 3.0  # Ignore solved events for 3 seconds after connection
+_CONNECTION_SOLVED_DELAY = 1.0  # Ignore solved events for 1 second after connection
 
 # Enhanced configuration
 VALID_LENGTHS = (18, 20)
@@ -211,6 +211,8 @@ async def _handle_cube_event(event: CubeEvent) -> None:
         if _connection_time and (time.time() - _connection_time) < _CONNECTION_SOLVED_DELAY:
             _log(f"🚫 Ignoring solved event - too soon after connection ({time.time() - _connection_time:.1f}s < {_CONNECTION_SOLVED_DELAY}s)")
             return
+        else:
+            _log(f"✅ Accepting solved event - {time.time() - (_connection_time or 0):.1f}s after connection")
         
         if socketio:
             socketio.emit("solved", {"timestamp": event.timestamp})
