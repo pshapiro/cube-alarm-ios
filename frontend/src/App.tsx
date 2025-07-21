@@ -45,7 +45,7 @@ const App: React.FC = () => {
   // Initialize socket connection
   useEffect(() => {
     // Initialize socket connection
-    socketRef.current = io('http://localhost:5001');
+    socketRef.current = io('http://192.168.1.162:5001');
     const socket = socketRef.current;
     setSocket(socket);
 
@@ -108,7 +108,7 @@ const App: React.FC = () => {
   const loadAlarms = async () => {
     try {
       console.log('Loading alarms...');
-      const response = await fetch('http://localhost:5001/api/alarms');
+      const response = await fetch('http://192.168.1.162:5001/api/alarms');
       const data = await response.json();
       console.log('Alarms API response:', data);
       // Backend returns array directly, not wrapped in {alarms: []}
@@ -124,7 +124,7 @@ const App: React.FC = () => {
   const loadCubeStatus = async () => {
     try {
       console.log('Loading cube status...');
-      const response = await fetch('http://localhost:5001/api/cube/status');
+      const response = await fetch('http://192.168.1.162:5001/api/cube/status');
       const data = await response.json();
       console.log('Cube status API response:', data);
       setCubeState(prev => ({
@@ -140,8 +140,8 @@ const App: React.FC = () => {
   const handleSaveAlarm = async (alarmData: Omit<Alarm, 'id'>) => {
     try {
       const url = editingAlarm 
-        ? `http://localhost:5001/api/alarms/${editingAlarm.id}`
-        : 'http://localhost:5001/api/alarms';
+        ? `http://192.168.1.162:5001/api/alarms/${editingAlarm.id}`
+        : 'http://192.168.1.162:5001/api/alarms';
       
       const method = editingAlarm ? 'PUT' : 'POST';
       
@@ -167,7 +167,7 @@ const App: React.FC = () => {
 
   const handleDeleteAlarm = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:5001/api/alarms/${id}`, {
+      const response = await fetch(`http://192.168.1.162:5001/api/alarms/${id}`, {
         method: 'DELETE',
       });
 
@@ -183,7 +183,7 @@ const App: React.FC = () => {
 
   const handleToggleAlarm = async (id: string, enabled: boolean) => {
     try {
-      const response = await fetch(`http://localhost:5001/api/alarms/${id}/toggle`, {
+      const response = await fetch(`http://192.168.1.162:5001/api/alarms/${id}/toggle`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -203,7 +203,7 @@ const App: React.FC = () => {
 
   const handleStopAlarm = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/alarms/stop', {
+      const response = await fetch('http://192.168.1.162:5001/api/alarms/stop', {
         method: 'POST',
       });
       
@@ -219,7 +219,7 @@ const App: React.FC = () => {
 
   const handleResetCubeState = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/cube/reset', {
+      const response = await fetch('http://192.168.1.162:5001/api/cube/reset', {
         method: 'POST',
       });
       
