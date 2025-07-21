@@ -77,18 +77,24 @@ class PiAudioManager:
         except Exception:
             return False
     
-    def start_alarm_sound(self, alarm_id: str, alarm_label: str = "Alarm") -> bool:
-        """Start playing alarm sound for given alarm ID."""
-        if alarm_id in self.active_alarms:
-            logger.warning(f"⚠️ Alarm sound already playing for {alarm_id}")
-            return True
+    def play_alarm_sound(self, alarm_id: str, sound_file: str = None) -> bool:
+        """Play alarm sound continuously until stopped."""
+        logger.info(f"🔊 DEBUG: play_alarm_sound called for ID: {alarm_id}")
         
-        logger.info(f"🔊 Starting alarm sound for: {alarm_label} (ID: {alarm_id})")
+        if alarm_id in self.active_alarms:
+            logger.info(f"🔊 Alarm {alarm_id} already playing")
+            return True
+            
+        sound_path = sound_file or 'sounds/alarm.wav'
+        logger.info(f"🔊 Starting alarm sound for ID: {alarm_id} with file: {sound_path}")
+        logger.info(f"🔊 DEBUG: Sound file exists: {os.path.exists(sound_path)}")
+        logger.info(f"🔊 DEBUG: Current working directory: {os.getcwd()}")
+        logger.info(f"🔊 DEBUG: Environment variables: PULSE_RUNTIME_PATH={os.environ.get('PULSE_RUNTIME_PATH')}, XDG_RUNTIME_DIR={os.environ.get('XDG_RUNTIME_DIR')}")
         
         # Create and start alarm thread
         alarm_thread = threading.Thread(
             target=self._alarm_sound_loop,
-            args=(alarm_id, alarm_label),
+            args=(alarm_id, alarm_id),
             daemon=True
         )
         alarm_thread.start()
