@@ -23,10 +23,12 @@ COMMAND_CHAR_UUID = "8653000c-43e6-47b7-9cb0-5fc21d4ae340"
 # Global state
 socketio: Optional[SocketIO] = None
 _connection: Optional[GanCubeConnection] = None
-_key_iv: Optional[tuple[bytes, bytes]] = None
+_key_iv: Optional[Tuple[bytes, bytes]] = None
 _solve_callbacks: List[Callable[[], None]] = []
 _move_callbacks: List[Callable[[dict], None]] = []
 _connection_callbacks: List[Callable[[bool], None]] = []
+_connection_time: Optional[float] = None  # Track when cube was connected
+_CONNECTION_SOLVED_DELAY = 3.0  # Ignore solved events for 3 seconds after connection
 
 # Enhanced configuration
 VALID_LENGTHS = (18, 20)
@@ -203,6 +205,13 @@ async def _handle_cube_event(event: CubeEvent) -> None:
     
     elif event.event_type == "SOLVED":
         _log(f"Event: {event.event_type}")
+        
+        # Check if we should ignore solved events immediately after connection
+        global _connection_time
+        if _connection_time and (time.time() - _connection_time) < _CONNECTION_SOLVED_DELAY:
+            _log(f"🚫 Ignoring solved event - too soon after connection ({time.time() - _connection_time:.1f}s < {_CONNECTION_SOLVED_DELAY}s)")
+            return
+        
         if socketio:
             socketio.emit("solved", {"timestamp": event.timestamp})
         
@@ -393,6 +402,10 @@ async def _connect_to_cube(device, real_mac: Optional[str]) -> Optional[GanCubeC
             await client.start_notify(STATE_CHAR_UUID, _notify_handler)
             
             _log("✅ Connected successfully! Move the cube to see events.")
+            
+            # Track connection time to prevent false solved detection
+            global _connection_time
+            _connection_time = time.time()
             
             # Call connection callbacks to notify connected status
             global _connection_callbacks
