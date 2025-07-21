@@ -233,6 +233,38 @@ def decrypt_packet(raw: bytes, key: bytes, iv: bytes) -> bytes:
     
     return bytes(result)
 
+def encrypt_packet(data: bytes, key: bytes, iv: bytes) -> bytes:
+    """Encrypt a command packet using JavaScript-matching dual-chunk approach.
+    
+    JavaScript implementation encrypts:
+    1. 16-byte chunk at start (offset 0)
+    2. 16-byte chunk at end (offset length-16) if length > 16
+    
+    This matches the GanGen2CubeEncrypter.encrypt() method.
+    """
+    if len(data) < 16:
+        raise ValueError('Data must be at least 16 bytes long')
+    
+    # Create a copy to encrypt in-place
+    result = bytearray(data)
+    
+    # JavaScript encrypts the **first** 16-byte block first, then the last.
+    # The IV is reused for both encryptions, matching gan-web-bluetooth.
+
+    # 1. Encrypt leading 16-byte chunk
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    chunk = cipher.encrypt(result[0:16])
+    result[0:16] = chunk
+
+    # 2. Encrypt trailing 16-byte chunk (if present)
+    if len(result) > 16:
+        end_offset = len(result) - 16
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+        chunk = cipher.encrypt(result[end_offset:end_offset + 16])
+        result[end_offset:end_offset + 16] = chunk
+
+    return bytes(result)
+
 class ProtocolMessageView:
     """Binary view helper that allows reading arbitrary bit-length words from a byte sequence (similar to JS GanProtocolMessageView)."""
 

@@ -69,8 +69,11 @@ class GanGen3ProtocolDriver(GanProtocolDriver):
             return bytes([0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
         elif cmd_type == "REQUEST_RESET":
-            return bytes([0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+            # Gen3 reset command from JavaScript implementation
+            reset_cmd = bytes([0x68, 0x05, 0x05, 0x39, 0x77, 0x00, 0x00, 0x01, 
+                              0x23, 0x45, 0x67, 0x89, 0xAB, 0x00, 0x00, 0x00])
+            print(f"🔧 DEBUG: Creating reset command: {reset_cmd.hex()}")
+            return reset_cmd
         
         return None
     
@@ -267,7 +270,8 @@ class GanCubeConnection:
     
     def __init__(self, device_name: str, device_mac: str, 
                  raw_connection: GanCubeRawConnection,
-                 protocol_driver: GanProtocolDriver):
+                 protocol_driver: GanProtocolDriver,
+                 key: bytes = None, iv: bytes = None):
         self.device_name = device_name
         self.device_mac = device_mac
         self._raw_connection = raw_connection
@@ -276,6 +280,8 @@ class GanCubeConnection:
         self._cube_state = CubeState.solved()
         self._move_count = 0
         self._last_solved_move_count = 0
+        self._key = key
+        self._iv = iv
         
     def add_event_callback(self, callback: Callable[[CubeEvent], None]) -> None:
         """Add callback for cube events."""
@@ -339,7 +345,15 @@ class GanCubeConnection:
         """Send command to the cube."""
         cmd_message = self._protocol_driver.create_command_message(command)
         if cmd_message:
-            await self._raw_connection.send_command_message(cmd_message)
+            # Encrypt the command before sending
+            if self._key and self._iv:
+                from gan_decrypt import encrypt_packet
+                encrypted_message = encrypt_packet(cmd_message, self._key, self._iv)
+                print(f"🔐 DEBUG: Encrypted command: {encrypted_message.hex()}")
+                await self._raw_connection.send_command_message(encrypted_message)
+            else:
+                print("⚠️ WARNING: No encryption keys available, sending raw command")
+                await self._raw_connection.send_command_message(cmd_message)
     
     async def disconnect(self) -> None:
         """Close this connection."""

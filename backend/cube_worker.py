@@ -11,7 +11,7 @@ import time
 from typing import Optional, Callable, List
 
 # Import the working ble_worker functions directly
-from ble_worker import run, add_move_callback, add_solve_callback
+from ble_worker import run, add_move_callback, add_solve_callback, reset_cube_state_sync
 from gan_decrypt import CubeMove, SolvedEvent
 
 class GanCubeWorker:
@@ -63,13 +63,23 @@ class GanCubeWorker:
         """Force cube state to solved (like official GAN app reset button)."""
         try:
             self._log("🔄 Manually resetting cube state to solved")
-            if self.on_solved:
-                solved_event = SolvedEvent(serial=0, timestamp=time.time())
-                self.on_solved(solved_event)
-                self._log("✅ Successfully triggered solved event")
+            
+            # Send actual REQUEST_RESET command to cube hardware
+            success = reset_cube_state_sync()
+            if success:
+                self._log("✅ Reset command sent to cube successfully")
+                
+                # Also trigger local solved event for immediate UI feedback
+                if self.on_solved:
+                    solved_event = SolvedEvent(serial=0, timestamp=time.time())
+                    self.on_solved(solved_event)
+                    self._log("✅ Successfully triggered solved event")
+                else:
+                    self._log("⚠️ Warning: on_solved callback not set")
             else:
-                self._log("⚠️ Warning: on_solved callback not set")
-                # Still return success since this isn't a critical error
+                self._log("❌ Failed to send reset command to cube")
+                raise Exception("Failed to send reset command to cube")
+                
         except Exception as e:
             self._log(f"❌ Error forcing solved state: {e}")
             raise  # Re-raise the exception so the API can return a proper error

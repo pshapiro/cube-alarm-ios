@@ -65,6 +65,70 @@ def remove_move_callback(callback: Callable[[dict], None]) -> None:
     if callback in _move_callbacks:
         _move_callbacks.remove(callback)
 
+async def reset_cube_state() -> bool:
+    """Send REQUEST_RESET command to cube to reset internal state to solved."""
+    global _connection
+    
+    if not _connection:
+        _log("❌ No cube connection available for reset")
+        return False
+    
+    try:
+        _log("🔄 Sending REQUEST_RESET command to cube...")
+        await _connection.send_cube_command({"type": "REQUEST_RESET"})
+        _log("✅ Reset command sent successfully")
+        return True
+    except Exception as e:
+        _log(f"❌ Error sending reset command: {e}")
+        return False
+
+# Global flag for reset command
+_reset_requested = False
+
+def reset_cube_state_sync() -> bool:
+    """Request a cube reset to be processed in the main BLE loop."""
+    global _reset_requested, _connection
+    
+    if not _connection:
+        _log("❌ No cube connection available for reset")
+        return False
+    
+    try:
+        _log("🔄 Requesting cube reset...")
+        _reset_requested = True
+        
+        # Wait for the reset to be processed (up to 5 seconds)
+        start_time = time.time()
+        while _reset_requested and time.time() - start_time < 5.0:
+            time.sleep(0.1)
+        
+        if _reset_requested:
+            _log("❌ Reset request timed out")
+            _reset_requested = False
+            return False
+        else:
+            _log("✅ Reset request completed")
+            return True
+            
+    except Exception as e:
+        _log(f"❌ Error requesting reset: {e}")
+        _reset_requested = False
+        return False
+
+async def _process_reset_requests() -> None:
+    """Process pending reset requests in the main BLE loop."""
+    global _reset_requested, _connection
+    
+    if _reset_requested and _connection:
+        try:
+            _log("🔄 Processing reset request in BLE loop...")
+            await _connection.send_cube_command({"type": "REQUEST_RESET"})
+            _log("✅ Reset command sent to cube in BLE loop")
+        except Exception as e:
+            _log(f"❌ Error sending reset in BLE loop: {e}")
+        finally:
+            _reset_requested = False
+
 def get_connection() -> Optional[GanCubeConnection]:
     """Get current cube connection."""
     return _connection
@@ -133,7 +197,9 @@ async def _create_raw_connection(client: BleakClient) -> GanCubeRawConnection:
     async def send_command(message: bytes) -> None:
         """Send command to cube."""
         try:
+            _log(f"🔧 DEBUG: Sending {len(message)} bytes to cube: {message.hex()}")
             await client.write_gatt_char(COMMAND_CHAR_UUID, message)
+            _log(f"✅ DEBUG: Command sent successfully")
         except Exception as e:
             _log(f"❌ Error sending command: {e}")
     
@@ -282,7 +348,9 @@ async def _connect_to_cube(device, real_mac: Optional[str]) -> Optional[GanCubeC
                 device_name=device.name or "Unknown",
                 device_mac=device.address,
                 raw_connection=raw_connection,
-                protocol_driver=protocol_driver
+                protocol_driver=protocol_driver,
+                key=_key_iv[0],
+                iv=_key_iv[1]
             )
             
             # Add event callback
@@ -329,10 +397,15 @@ async def _ble_loop() -> None:
                 await asyncio.sleep(RECONNECT_DELAY)
                 continue
             
-            # Keep connection alive
+            # Keep connection alive and process reset requests
             try:
-                # Wait indefinitely until cancelled
-                await asyncio.Event().wait()
+                while True:
+                    # Check for reset requests (but don't process continuously)
+                    await _process_reset_requests()
+                    
+                    # Sleep longer to avoid busy waiting and command spam
+                    await asyncio.sleep(1.0)
+                    
             except asyncio.CancelledError:
                 _log("🛑 BLE loop cancelled")
                 break
