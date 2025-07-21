@@ -433,7 +433,9 @@ def setup_ble_callbacks():
         """Direct callback from BLE worker to alarm manager."""
         try:
             logger.info("🎯 DEBUG: Received solved event DIRECTLY from BLE worker!")
+            logger.info(f"🎯 DEBUG: Active alarms before processing: {list(alarm_manager.active_alarms)}")
             alarm_manager.on_cube_solved()
+            logger.info(f"🎯 DEBUG: Active alarms after processing: {list(alarm_manager.active_alarms)}")
         except Exception as e:
             logger.error(f"❌ Error in direct solved callback: {e}")
     
