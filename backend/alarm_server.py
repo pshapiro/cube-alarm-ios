@@ -463,4 +463,4 @@ if __name__ == '__main__':
     logger.info("🌐 API server starting on http://localhost:5001")
     
     # Run Flask-SocketIO server
-    socketio.run(app, host='0.0.0.0', port=5001, debug=False)
+    socketio.run(app, host='0.0.0.0', port=5001, debug=False, allow_unsafe_werkzeug=True)
