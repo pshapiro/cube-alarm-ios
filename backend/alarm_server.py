@@ -336,6 +336,16 @@ def stop_alarm(alarm_id):
     else:
         return jsonify({'error': 'Alarm not found or not active'}), 404
 
+@app.route('/api/alarms/stop', methods=['POST'])
+def stop_all_alarms():
+    """Stop all active alarms."""
+    stopped_count = 0
+    for alarm_id in list(alarm_manager.active_alarms):
+        if alarm_manager.stop_alarm(alarm_id, solved_by_cube=False):
+            stopped_count += 1
+    
+    return jsonify({'message': f'Stopped {stopped_count} active alarms'})
+
 @app.route('/api/cube/status', methods=['GET'])
 def get_cube_status():
     """Get current cube connection and solved status."""
