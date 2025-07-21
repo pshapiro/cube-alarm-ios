@@ -166,7 +166,7 @@ class GanGen3ProtocolDriver(GanProtocolDriver):
             return
         
         conn._last_move_serial = move.serial
-        move_notation = f"{move.face}{"'" if move.direction == 1 else ""}"
+        move_notation = f"{move.face}{'\'' if move.direction == 1 else ''}"
         
         # Add move to history (keep last 50 moves for efficiency)
         conn._move_history.append(move_notation)
