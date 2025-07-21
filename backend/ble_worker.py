@@ -162,7 +162,7 @@ def is_cube_solved() -> bool:
 
 async def _handle_cube_event(event: CubeEvent) -> None:
     """Enhanced event handler with solve detection and callbacks."""
-    global socketio, _solve_callbacks, _move_callbacks
+    global socketio, _solve_callbacks, _move_callbacks, _connection_time
     
     if isinstance(event, MoveEvent):
         move_dict = event.move.to_dict()
@@ -198,10 +198,27 @@ async def _handle_cube_event(event: CubeEvent) -> None:
     elif isinstance(event, FaceletsEvent):
         _log(f"Facelets update (serial: {event.serial})")
         
-        # DISABLED: FaceletsEvent.state.is_solved() conflicts with our working facelets string-based detection
-        # The protocol driver now handles solved detection correctly using facelets string comparison
-        # Only rely on SolvedEvent objects emitted by the protocol driver
-        pass
+        # Check if cube is solved based on facelets state
+        if event.state.is_solved():
+            _log(f"🎉 Cube solved! (detected from facelets state)")
+            
+            # Check connection delay before processing solved event
+            if _connection_time and (time.time() - _connection_time) < _CONNECTION_SOLVED_DELAY:
+                _log(f"🚫 Ignoring solved event - too soon after connection ({time.time() - _connection_time:.1f}s < {_CONNECTION_SOLVED_DELAY}s)")
+                return
+            
+            if socketio:
+                socketio.emit("solved", {"timestamp": time.time()})
+            
+            # Call solve callbacks
+            _log(f"🎯 DEBUG: Calling {len(_solve_callbacks)} solve callbacks for facelets-based solved detection")
+            for callback in _solve_callbacks:
+                try:
+                    _log(f"🎯 DEBUG: Calling solve callback: {callback}")
+                    callback()
+                    _log(f"✅ DEBUG: Solve callback completed successfully")
+                except Exception as e:
+                    _log(f"❌ Error in solve callback: {e}")
     
     elif event.event_type == "SOLVED":
         _log(f"Event: {event.event_type}")
