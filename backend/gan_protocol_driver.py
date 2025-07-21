@@ -54,6 +54,7 @@ class GanGen3ProtocolDriver(GanProtocolDriver):
         self.last_serial = -1
         self.last_local_timestamp: Optional[float] = None
         self.move_buffer: deque[CubeEvent] = deque(maxlen=100)  # FIFO buffer for moves
+        self.last_solved_state: Optional[bool] = None  # Track solved state changes
         
     def create_command_message(self, command: Dict[str, Any]) -> Optional[bytes]:
         """Create binary command message for cube device."""
@@ -154,6 +155,77 @@ class GanGen3ProtocolDriver(GanProtocolDriver):
             # No moves for 5 seconds, request recent move history
             await self.request_move_history(conn, (self.last_serial + 1) % 256, 10)
     
+    async def _track_move_for_solved_detection(self, conn: 'GanCubeConnection', move: CubeMove, events: List[CubeEvent]) -> None:
+        """Track moves and detect when cube returns to solved state."""
+        # Skip if this is not a proper GanCubeConnection object
+        if not hasattr(conn, '_last_move_serial'):
+            return
+            
+        # Skip if this is a duplicate serial (already processed)
+        if move.serial == conn._last_move_serial:
+            return
+        
+        conn._last_move_serial = move.serial
+        move_notation = f"{move.face}{"'" if move.direction == 1 else ""}"
+        
+        # Add move to history (keep last 50 moves for efficiency)
+        conn._move_history.append(move_notation)
+        if len(conn._move_history) > 50:
+            conn._move_history.pop(0)
+        
+        # Mark as not solved when any move is made
+        if conn._is_solved:
+            conn._is_solved = False
+            print(f"🔄 Cube scrambled with move: {move_notation}")
+        
+        # Check for solved state using move cancellation patterns
+        if self._check_solved_by_move_cancellation(conn._move_history):
+            if not conn._is_solved:  # Only trigger if not already marked as solved
+                conn._is_solved = True
+                print(f"🎉 Cube solved! Last move: {move_notation}")
+                
+                # Create and emit solved event
+                solved_event = SolvedEvent(
+                    timestamp=time.time(),
+                    facelets="UUUUUUUUURRRRRRRRRDDDDDDDDDLLLLLLLLLFFFFFFFFBBBBBBBBB",  # Solved state
+                    state=CubeState.solved()
+                )
+                events.append(solved_event)
+    
+    def _check_solved_by_move_cancellation(self, move_history: List[str]) -> bool:
+        """Check if recent moves indicate cube is solved using move cancellation patterns."""
+        if len(move_history) < 2:
+            return False
+        
+        # Check for immediate cancellation (e.g., U followed by U')
+        last_move = move_history[-1]
+        second_last = move_history[-2]
+        
+        # Parse moves
+        def parse_move(move_str):
+            if move_str.endswith("'"):
+                return move_str[:-1], True  # face, is_prime
+            else:
+                return move_str, False
+        
+        last_face, last_prime = parse_move(last_move)
+        second_face, second_prime = parse_move(second_last)
+        
+        # Check for direct cancellation (U followed by U', or U' followed by U)
+        if last_face == second_face and last_prime != second_prime:
+            print(f"🔍 Move cancellation detected: {second_last} → {last_move}")
+            return True
+        
+        # Check for 4-move cycles (U U U U = solved, or U' U' U' U' = solved)
+        if len(move_history) >= 4:
+            last_4 = move_history[-4:]
+            if all(move == last_4[0] for move in last_4):
+                face, is_prime = parse_move(last_4[0])
+                print(f"🔍 4-move cycle detected: {' '.join(last_4)}")
+                return True
+        
+        return False
+    
     async def handle_state_event(self, conn: 'GanCubeRawConnection', 
                                 event_message: bytes) -> List[CubeEvent]:
         """Handle binary event messages from cube device."""
@@ -207,11 +279,17 @@ class GanGen3ProtocolDriver(GanProtocolDriver):
                 if facelets_event:
                     events.append(facelets_event)
                     
-                    # Check if cube is solved based on facelets
-                    if is_solved_state(facelets_event.facelets):
+                    # Check if cube is solved based on facelets (working correctly with updated SOLVED_STATE)
+                    current_solved_state = is_solved_state(facelets_event.facelets)
+                    
+                    # Only emit solved event if state changed from not-solved to solved
+                    if current_solved_state and self.last_solved_state != True:
                         print("🎉 Cube solved!")
                         solved_event = SolvedEvent(serial=facelets_event.serial, timestamp=time.time())
                         events.append(solved_event)
+                    
+                    # Update tracked solved state
+                    self.last_solved_state = current_solved_state
                     
                     await self.check_if_move_missed(conn)
             
@@ -282,6 +360,11 @@ class GanCubeConnection:
         self._last_solved_move_count = 0
         self._key = key
         self._iv = iv
+        
+        # Move-based solved state tracking
+        self._move_history: List[str] = []
+        self._is_solved = True  # Assume cube starts solved
+        self._last_move_serial = None
         
     def add_event_callback(self, callback: Callable[[CubeEvent], None]) -> None:
         """Add callback for cube events."""

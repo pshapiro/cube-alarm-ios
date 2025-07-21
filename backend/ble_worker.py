@@ -44,14 +44,24 @@ def _log(msg: str):
     print(f"[{timestamp}] {msg}", flush=True)
 
 def add_solve_callback(callback: Callable[[], None]) -> None:
-    """Add callback for when cube is solved."""
+    """Add a callback to be called when cube is solved."""
     global _solve_callbacks
     _solve_callbacks.append(callback)
 
 def add_move_callback(callback: Callable[[dict], None]) -> None:
-    """Add callback for cube moves."""
+    """Add a callback to be called when cube move is detected."""
     global _move_callbacks
     _move_callbacks.append(callback)
+
+def get_current_solved_state() -> bool:
+    """Get the current solved state from the protocol driver."""
+    global _connection
+    if _connection and hasattr(_connection, '_protocol_driver'):
+        # Check the protocol driver's last solved state
+        protocol_driver = _connection._protocol_driver
+        if hasattr(protocol_driver, 'last_solved_state'):
+            return protocol_driver.last_solved_state or False
+    return False
 
 def remove_solve_callback(callback: Callable[[], None]) -> None:
     """Remove solve callback."""
@@ -158,7 +168,7 @@ async def _handle_cube_event(event: CubeEvent) -> None:
         
         # Check for solve after move
         if _connection and _connection.is_solved():
-            # _log("🎉 Cube solved!")  # DISABLED - false positives
+            _log("🎉 Cube solved!")  # Re-enabled from working commit 977e6c4
             if socketio:
                 socketio.emit("solved", {"timestamp": time.time()})
             
@@ -170,18 +180,12 @@ async def _handle_cube_event(event: CubeEvent) -> None:
                     _log(f"❌ Error in solve callback: {e}")
     
     elif isinstance(event, FaceletsEvent):
-        _log(f"Facelets update (serial: {event.serial}) – solved={event.state.is_solved()}")
+        _log(f"Facelets update (serial: {event.serial})")
         
-        # TODO: Fix false positive solved detection - DISABLED
-        # if event.state.is_solved():
-        #     _log("🎉 Cube solved!")
-        #     if socketio:
-        #         socketio.emit("solved", {"timestamp": time.time()})
-        #     for callback in _solve_callbacks:
-        #         try:
-        #             callback()
-        #         except Exception as e:
-        #             _log(f"❌ Error in solve callback: {e}")
+        # DISABLED: FaceletsEvent.state.is_solved() conflicts with our working facelets string-based detection
+        # The protocol driver now handles solved detection correctly using facelets string comparison
+        # Only rely on SolvedEvent objects emitted by the protocol driver
+        pass
     
     else:
         _log(f"Event: {event.event_type}")

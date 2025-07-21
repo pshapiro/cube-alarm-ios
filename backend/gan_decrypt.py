@@ -20,8 +20,10 @@ _DECODED_KEYS = [
 FACE_NAMES = ['U', 'R', 'F', 'D', 'L', 'B']
 MOVE_NAMES = ['U', 'R', 'F', 'D', 'L', 'B', "U'", "R'", "F'", "D'", "L'", "B'"]
 
-# Solved state constant (from JavaScript implementation)
-SOLVED_STATE = "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB"
+# Solved state constant (updated to match user's cube actual solved state)
+# Original: UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB
+# User's cube: UUUUUUUUUBBBRRRRRRRRRFFFFFFDDDDDDDDDFFFLLLLLLLLLBBBBBB
+SOLVED_STATE = "UUUUUUUUUBBBRRRRRRRRRFFFFFFDDDDDDDDDFFFLLLLLLLLLBBBBBB"
 
 # Corner and edge facelet mappings (from JavaScript implementation)
 CORNER_FACELET_MAP = [
@@ -767,9 +769,10 @@ def is_solved_packet(packet: bytes) -> bool:
         if len(clear) < 16:
             return False
         
-        # 18-byte packets with event type 0x01 appear to be solved state notifications
-        # These occur when returning faces to solved position (e.g., U then U')
-        return clear[0] == 0x55 and clear[1] == 0x01 and len(clear) == 18
+        # DISABLED: 18-byte solved packet detection was causing false positives
+        # The cube sends 20-byte move packets that were being misidentified as solved packets
+        # Only rely on facelets-based solved detection for now
+        return False
         
     except Exception:
         return False

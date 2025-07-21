@@ -68,22 +68,27 @@ const App: React.FC = () => {
       const moveStr = `${data.face}${data.direction === 'prime' ? "'" : ''}`;
       setLastMove(moveStr);
       // If we receive moves, cube must be connected
-      setCubeState(prev => ({ ...prev, connected: true, lastMove: moveStr, solved: false }));
+      // Don't automatically set solved=false - let solved events control this
+      setCubeState(prev => ({ ...prev, connected: true, lastMove: moveStr }));
     });
 
     socket.on('cube_solved', () => {
-      console.log('Cube solved!');
+      console.log('🎉 Frontend: Received cube_solved event');
+      console.log('🔄 Frontend: Setting cubeState.solved = true');
       setCubeState(prev => ({ ...prev, solved: true }));
       
       // If there's an active alarm that requires cube solve, stop it
       if (activeAlarm && activeAlarm.requires_cube_solve) {
+        console.log('🛑 Frontend: Stopping alarm due to cube solved');
         handleStopAlarm();
+      } else {
+        console.log('ℹ️ Frontend: No active alarm requiring cube solve');
       }
     });
 
-    socket.on('alarm_triggered', (alarm: Alarm) => {
-      console.log('Alarm triggered:', alarm);
-      setActiveAlarm({ ...alarm, is_active: true });
+    socket.on('alarm_triggered', (data: { alarm: Alarm, timestamp: string }) => {
+      console.log('Alarm triggered:', data);
+      setActiveAlarm({ ...data.alarm, is_active: true });
     });
 
     socket.on('alarm_stopped', () => {

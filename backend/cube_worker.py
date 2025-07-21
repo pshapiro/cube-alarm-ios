@@ -11,7 +11,7 @@ import time
 from typing import Optional, Callable, List
 
 # Import the working ble_worker functions directly
-from ble_worker import run, add_move_callback, add_solve_callback, reset_cube_state_sync
+from ble_worker import run, add_move_callback, add_solve_callback, reset_cube_state_sync, get_current_solved_state
 from gan_decrypt import CubeMove, SolvedEvent
 
 class GanCubeWorker:
@@ -25,6 +25,7 @@ class GanCubeWorker:
         self.running = False
         self._thread = None
         self._socketio = None
+        self._is_solved = False  # Track current solved state
     
     def _log(self, message: str):
         """Log with timestamp."""
@@ -45,6 +46,10 @@ class GanCubeWorker:
         
         if self.on_solved:
             add_solve_callback(self._solved_wrapper)
+            
+        # Initialize solved state - assume solved until we get events
+        # This handles the case where cube starts in solved state
+        self._set_solved_state(True)
         
         # Start the working ble_worker in a thread
         self._thread = threading.Thread(target=self._run_ble_worker, daemon=True)
@@ -89,9 +94,16 @@ class GanCubeWorker:
         return self.running
     
     def is_solved(self) -> bool:
-        """Check if cube is currently solved (placeholder - could track state)."""
-        # This could be enhanced to track actual cube state
-        return False
+        """Check if cube is currently solved."""
+        # Get the actual current solved state from the protocol driver
+        current_state = get_current_solved_state()
+        # Update our tracked state to match reality
+        self._is_solved = current_state
+        return current_state
+    
+    def _set_solved_state(self, solved: bool):
+        """Update the tracked solved state."""
+        self._is_solved = solved
     
     def _run_ble_worker(self):
         """Run the working ble_worker.py."""
@@ -104,6 +116,9 @@ class GanCubeWorker:
     def _move_wrapper(self, move_dict):
         """Wrapper for move callbacks - converts dict to CubeMove object."""
         try:
+            # When a move is made, cube is no longer solved
+            self._set_solved_state(False)
+            
             if self.on_move:
                 # Convert dictionary to CubeMove object
                 move_obj = CubeMove(
@@ -122,6 +137,9 @@ class GanCubeWorker:
     def _solved_wrapper(self):
         """Wrapper for solved callbacks."""
         try:
+            # Update tracked solved state
+            self._set_solved_state(True)
+            
             if self.on_solved:
                 # Create a SolvedEvent object like the original implementation
                 solved_event = SolvedEvent(serial=0, timestamp=time.time())

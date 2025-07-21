@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Alarm } from '../App';
 import './ActiveAlarm.css';
 
@@ -22,6 +22,90 @@ const ActiveAlarm: React.FC<ActiveAlarmProps> = ({
   cubeSolved 
 }) => {
   const [timeElapsed, setTimeElapsed] = useState(0);
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
+  const isPlayingRef = useRef(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Create audio context for alarm sound
+  useEffect(() => {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    setAudioContext(ctx);
+    return () => {
+      ctx.close();
+    };
+  }, []);
+
+  // Play alarm sound
+  const playAlarmSound = () => {
+    if (!audioContext || isPlayingRef.current) return;
+    
+    isPlayingRef.current = true;
+    
+    const playBeep = () => {
+      // Check if we should stop playing
+      if (!isPlayingRef.current || cubeSolved) {
+        console.log('🔇 Stopping beep due to:', !isPlayingRef.current ? 'not playing' : 'cube solved');
+        return;
+      }
+      
+      if (!audioContext) return;
+      
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
+      
+      // Schedule next beep
+      timeoutRef.current = setTimeout(playBeep, 1500);
+    };
+    
+    playBeep();
+  };
+
+  // Stop alarm sound
+  const stopAlarmSound = () => {
+    isPlayingRef.current = false;
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
+  // Start alarm sound when component mounts
+  useEffect(() => {
+    if (audioContext && !cubeSolved) {
+      playAlarmSound();
+    }
+    return () => {
+      stopAlarmSound();
+    };
+  }, [audioContext]);
+
+  // Stop alarm sound when cube is solved
+  useEffect(() => {
+    console.log('🔊 ActiveAlarm: cubeSolved changed to:', cubeSolved);
+    if (cubeSolved) {
+      console.log('🔇 ActiveAlarm: Stopping alarm sound due to cube solved');
+      stopAlarmSound();
+    }
+  }, [cubeSolved]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopAlarmSound();
+    };
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -44,8 +128,15 @@ const ActiveAlarm: React.FC<ActiveAlarmProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const formatAlarmTime = (time: string) => {
-    const [hours, minutes] = time.split(':');
+  const formatAlarmTime = (time: string | undefined) => {
+    if (!time || typeof time !== 'string') {
+      return 'Unknown Time';
+    }
+    const parts = time.split(':');
+    if (parts.length !== 2) {
+      return time; // Return as-is if not in expected format
+    }
+    const [hours, minutes] = parts;
     const hour = parseInt(hours);
     const ampm = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour % 12 || 12;
