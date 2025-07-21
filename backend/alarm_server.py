@@ -104,6 +104,9 @@ class AlarmManager:
         
         logger.info(f"🚨 Alarm triggered: {alarm.label} at {alarm.time}")
         
+        # Start playing alarm sound locally (for Raspberry Pi deployment)
+        self._start_alarm_sound(alarm_id)
+        
         # Emit to all connected clients
         socketio.emit('alarm_triggered', {
             'alarm': asdict(alarm),
@@ -123,6 +126,9 @@ class AlarmManager:
         self.active_alarms.discard(alarm_id)
         
         logger.info(f"⏰ Alarm stopped: {alarm.label} {'by cube solve' if solved_by_cube else 'manually'}")
+        
+        # Stop playing alarm sound locally
+        self._stop_alarm_sound(alarm_id)
         
         # Check if we should stop BLE worker to save battery
         self._check_ble_worker_shutdown()
@@ -200,6 +206,40 @@ class AlarmManager:
             stop_ble_worker()
         elif self.active_alarms:
             logger.info(f"🔋 Keeping BLE worker running - {len(self.active_alarms)} active alarms")
+    
+    def _start_alarm_sound(self, alarm_id: str):
+        """Start playing alarm sound locally using Pi Audio Manager."""
+        try:
+            from pi_audio import start_alarm_sound
+            
+            alarm = self.alarms.get(alarm_id)
+            alarm_label = alarm.label if alarm else "Unknown Alarm"
+            
+            success = start_alarm_sound(alarm_id, alarm_label)
+            if success:
+                logger.info(f"🔊 Started alarm sound for: {alarm_label}")
+            else:
+                logger.error(f"❌ Failed to start alarm sound for: {alarm_label}")
+            
+        except Exception as e:
+            logger.error(f"❌ Error starting alarm sound: {e}")
+    
+    def _stop_alarm_sound(self, alarm_id: str):
+        """Stop playing alarm sound locally using Pi Audio Manager."""
+        try:
+            from pi_audio import stop_alarm_sound
+            
+            alarm = self.alarms.get(alarm_id)
+            alarm_label = alarm.label if alarm else "Unknown Alarm"
+            
+            success = stop_alarm_sound(alarm_id)
+            if success:
+                logger.info(f"🔇 Stopped alarm sound for: {alarm_label}")
+            else:
+                logger.error(f"❌ Failed to stop alarm sound for: {alarm_label}")
+            
+        except Exception as e:
+            logger.error(f"❌ Error stopping alarm sound: {e}")
     
     def _schedule_alarm(self, alarm: Alarm):
         """Schedule an alarm with the scheduler."""
