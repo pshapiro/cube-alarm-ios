@@ -25,6 +25,7 @@ _connection: Optional[GanCubeConnection] = None
 _key_iv: Optional[tuple[bytes, bytes]] = None
 _solve_callbacks: List[Callable[[], None]] = []
 _move_callbacks: List[Callable[[dict], None]] = []
+_connection_callbacks: List[Callable[[bool], None]] = []
 
 # Enhanced configuration
 VALID_LENGTHS = (18, 20)
@@ -46,12 +47,21 @@ def _log(msg: str):
 def add_solve_callback(callback: Callable[[], None]) -> None:
     """Add a callback to be called when cube is solved."""
     global _solve_callbacks
+    _log(f"🎯 DEBUG: Registering solve callback: {callback}")
     _solve_callbacks.append(callback)
+    _log(f"🎯 DEBUG: Total solve callbacks now: {len(_solve_callbacks)}")
 
 def add_move_callback(callback: Callable[[dict], None]) -> None:
     """Add a callback to be called when cube move is detected."""
     global _move_callbacks
     _move_callbacks.append(callback)
+
+def add_connection_callback(callback: Callable[[bool], None]) -> None:
+    """Add a callback to be called when cube connection status changes."""
+    global _connection_callbacks
+    _log(f"🎯 DEBUG: Registering connection callback: {callback}")
+    _connection_callbacks.append(callback)
+    _log(f"🎯 DEBUG: Total connection callbacks now: {len(_connection_callbacks)}")
 
 def get_current_solved_state() -> bool:
     """Get the current solved state from the protocol driver."""
@@ -173,9 +183,12 @@ async def _handle_cube_event(event: CubeEvent) -> None:
                 socketio.emit("solved", {"timestamp": time.time()})
             
             # Call solve callbacks
+            _log(f"🎯 DEBUG: Calling {len(_solve_callbacks)} solve callbacks")
             for callback in _solve_callbacks:
                 try:
+                    _log(f"🎯 DEBUG: Calling solve callback: {callback}")
                     callback()
+                    _log(f"✅ DEBUG: Solve callback completed successfully")
                 except Exception as e:
                     _log(f"❌ Error in solve callback: {e}")
     
@@ -186,6 +199,21 @@ async def _handle_cube_event(event: CubeEvent) -> None:
         # The protocol driver now handles solved detection correctly using facelets string comparison
         # Only rely on SolvedEvent objects emitted by the protocol driver
         pass
+    
+    elif event.event_type == "SOLVED":
+        _log(f"Event: {event.event_type}")
+        if socketio:
+            socketio.emit("solved", {"timestamp": event.timestamp})
+        
+        # Call solve callbacks for SolvedEvent objects from protocol driver
+        _log(f"🎯 DEBUG: Calling {len(_solve_callbacks)} solve callbacks for SolvedEvent")
+        for callback in _solve_callbacks:
+            try:
+                _log(f"🎯 DEBUG: Calling solve callback: {callback}")
+                callback()
+                _log(f"✅ DEBUG: Solve callback completed successfully")
+            except Exception as e:
+                _log(f"❌ Error in solve callback: {e}")
     
     else:
         _log(f"Event: {event.event_type}")
@@ -364,6 +392,16 @@ async def _connect_to_cube(device, real_mac: Optional[str]) -> Optional[GanCubeC
             await client.start_notify(STATE_CHAR_UUID, _notify_handler)
             
             _log("✅ Connected successfully! Move the cube to see events.")
+            
+            # Call connection callbacks to notify connected status
+            global _connection_callbacks
+            _log(f"🎯 DEBUG: Calling {len(_connection_callbacks)} connection callbacks (connected=True)")
+            for callback in _connection_callbacks:
+                try:
+                    callback(True)
+                    _log(f"✅ DEBUG: Connection callback completed successfully")
+                except Exception as e:
+                    _log(f"❌ Error in connection callback: {e}")
             
             # Request initial hardware info and battery level
             await connection.request_hardware_info()

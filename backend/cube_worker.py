@@ -40,12 +40,20 @@ class GanCubeWorker:
         self.running = True
         self._socketio = socketio_ref
         
-        # Set up callbacks for the working ble_worker
-        if self.on_move:
-            add_move_callback(self._move_wrapper)
+        self._log("🚀 Starting cube worker...")
+        self._log(f"🎯 DEBUG: on_move callback: {self.on_move}")
+        self._log(f"🎯 DEBUG: on_solved callback: {self.on_solved}")
         
-        if self.on_solved:
-            add_solve_callback(self._solved_wrapper)
+        # Register callbacks with ble_worker
+        if self.on_move:
+            self._log("🎯 DEBUG: Registering move callback")
+            add_move_callback(self._move_wrapper)
+        else:
+            self._log("⚠️ DEBUG: No move callback to register")
+        
+        # Always register solved callback - on_solved may be set later
+        self._log("🎯 DEBUG: Registering solved callback")
+        add_solve_callback(self._solved_wrapper)
             
         # Initialize solved state - assume solved until we get events
         # This handles the case where cube starts in solved state
@@ -137,25 +145,32 @@ class GanCubeWorker:
     def _solved_wrapper(self):
         """Wrapper for solved callbacks."""
         try:
+            self._log("🎯 DEBUG: Cube worker _solved_wrapper called!")
             # Update tracked solved state
             self._set_solved_state(True)
             
             if self.on_solved:
+                self._log(f"🎯 DEBUG: Calling on_solved callback: {self.on_solved}")
                 # Create a SolvedEvent object like the original implementation
                 solved_event = SolvedEvent(serial=0, timestamp=time.time())
                 self.on_solved(solved_event)
+            else:
+                self._log("⚠️ DEBUG: No on_solved callback set!")
         except Exception as e:
             self._log(f"❌ Error in solved callback: {e}")
     
     def run_sync(self, socketio_ref=None):
         """Run the cube worker (blocking) - interface expected by alarm_server.py."""
         try:
+            self._log(f"🎯 DEBUG: run_sync called with socketio_ref: {socketio_ref}")
             # Set socketio reference if provided
             if socketio_ref:
                 self._socketio = socketio_ref
             
             # Start the cube worker using the working ble_worker.py
+            self._log("🎯 DEBUG: About to call start()")
             self.start(self._socketio)
+            self._log("🎯 DEBUG: start() completed successfully")
             
             # Keep the thread alive
             while self.running:
