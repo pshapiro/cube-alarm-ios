@@ -280,8 +280,10 @@ class GanGen3ProtocolDriver(GanProtocolDriver):
                 if facelets_event:
                     events.append(facelets_event)
                     
-                    # Check if cube is solved based on facelets (working correctly with updated SOLVED_STATE)
+                    # DEBUG: Log facelets string and solved state check
+                    print(f"🔍 DEBUG: Full facelets: {facelets_event.facelets}")
                     current_solved_state = is_solved_state(facelets_event.facelets)
+                    print(f"🔍 DEBUG: is_solved_state() = {current_solved_state}, last_solved = {getattr(self, 'last_solved_state', None)}")
                     
                     # Only emit solved event if state changed from not-solved to solved
                     if current_solved_state and self.last_solved_state != True:
