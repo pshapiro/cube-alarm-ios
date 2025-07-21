@@ -225,14 +225,17 @@ class PiAudioManager:
         try:
             sound_file = os.environ.get('ALARM_SOUND_FILE', 'sounds/alarm.wav')
             if os.path.exists(sound_file):
-                subprocess.run(['aplay', sound_file], check=True, 
+                # Force output to analog audio (card 0) to avoid HDMI routing issues
+                subprocess.run(['aplay', '-D', 'plughw:0,0', sound_file], check=True, 
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                return True
             else:
-                # Use speaker-test as fallback
+                # Use speaker-test as fallback - this is more reliable than missing WAV files
+                logger.info(f"🔊 Sound file {sound_file} not found, using speaker-test fallback")
                 return self._play_speaker_test()
-            return True
-        except subprocess.CalledProcessError:
-            return False
+        except subprocess.CalledProcessError as e:
+            logger.error(f"❌ aplay failed: {e}")
+            return self._play_speaker_test()
     
     def _play_paplay(self) -> bool:
         """Play alarm sound using paplay (PulseAudio)."""
@@ -277,11 +280,14 @@ class PiAudioManager:
     def _play_speaker_test(self) -> bool:
         """Play alarm sound using speaker-test (fallback)."""
         try:
-            subprocess.run(['speaker-test', '-t', 'sine', '-f', '800', '-l', '1'], 
-                         check=True, timeout=3,
+            # Force output to analog audio (card 0) and play a 2-second 800Hz tone
+            subprocess.run(['speaker-test', '-D', 'plughw:0,0', '-t', 'sine', '-f', '800', '-l', '2'], 
+                         check=True, timeout=5,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            logger.info("🔊 speaker-test alarm sound played successfully")
             return True
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            logger.error(f"❌ speaker-test failed: {e}")
             return False
     
     def test_audio(self) -> bool:
