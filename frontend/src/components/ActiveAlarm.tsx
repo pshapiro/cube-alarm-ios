@@ -21,6 +21,7 @@ const ActiveAlarm: React.FC<ActiveAlarmProps> = ({
   onStop, 
   cubeSolved 
 }) => {
+  console.log('🚨 ActiveAlarm: Component rendered with cubeSolved =', cubeSolved, 'alarm =', alarm.label);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const [alarmStartTime] = useState(Date.now());
@@ -97,9 +98,10 @@ const ActiveAlarm: React.FC<ActiveAlarmProps> = ({
     console.log('🔊 ActiveAlarm: cubeSolved changed to:', cubeSolved);
     if (cubeSolved) {
       console.log('🔇 ActiveAlarm: Stopping alarm sound due to cube solved');
-      stopAlarmSound();
+      console.log('🛑 ActiveAlarm: CALLING onStop() due to cubeSolved = true');
+      onStop(); // Actually stop the alarm, not just the sound
     }
-  }, [cubeSolved]);
+  }, [cubeSolved, onStop]);
 
   // Cleanup on unmount
   useEffect(() => {
