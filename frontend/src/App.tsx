@@ -78,9 +78,15 @@ const App: React.FC = () => {
       setCubeState(prev => ({ ...prev, solved: true }));
       
       // If there's an active alarm that requires cube solve, stop it
+      // But only if the alarm has been active for at least 5 seconds to prevent immediate stops
       if (activeAlarm && activeAlarm.requires_cube_solve) {
-        console.log('🛑 Frontend: Stopping alarm due to cube solved');
-        handleStopAlarm();
+        const alarmAge = Date.now() - new Date(activeAlarm.time).getTime();
+        if (alarmAge >= 5000) { // 5 second minimum
+          console.log('🛑 Frontend: Stopping alarm due to cube solved after', alarmAge, 'ms');
+          handleStopAlarm();
+        } else {
+          console.log('🕒 Frontend: Cube solved but alarm too new (', alarmAge, 'ms) - ignoring');
+        }
       } else {
         console.log('ℹ️ Frontend: No active alarm requiring cube solve');
       }
