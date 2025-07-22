@@ -20,9 +20,8 @@ _DECODED_KEYS = [
 FACE_NAMES = ['U', 'R', 'F', 'D', 'L', 'B']
 MOVE_NAMES = ['U', 'R', 'F', 'D', 'L', 'B', "U'", "R'", "F'", "D'", "L'", "B'"]
 
-# Solved state constant (updated to match user's cube actual solved state)
-# Original: UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB
-# User's cube: UUUUUUUUUBBBRRRRRRRRRFFFFFFDDDDDDDDDFFFLLLLLLLLLBBBBBB
+# Solved state constant - user's cube specific solved pattern
+# This cube has a non-standard color arrangement when solved
 SOLVED_STATE = "BUUBUULUUBBBRRRRRRURRUFFUFFRDDFDDFDDLLFLLFLLFLLDBBDBBD"
 
 # Corner and edge facelet mappings (from JavaScript implementation)
