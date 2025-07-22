@@ -260,9 +260,15 @@ class PiAudioManager:
                     self.active_processes[alarm_id] = process
                     logger.info(f"🔊 DEBUG: Stored process {process.pid} for alarm {alarm_id}")
                 
-                # Wait for process to complete
-                stdout, stderr = process.communicate()
-                logger.info(f"🔊 DEBUG: aplay finished with return code: {process.returncode}")
+                # Wait for process to complete with timeout
+                try:
+                    stdout, stderr = process.communicate(timeout=10)  # 10 second timeout
+                    logger.info(f"🔊 DEBUG: aplay finished with return code: {process.returncode}")
+                except subprocess.TimeoutExpired:
+                    logger.error(f"❌ aplay timed out after 10 seconds, killing process")
+                    process.kill()
+                    stdout, stderr = process.communicate()
+                    logger.error(f"❌ aplay was killed due to timeout")
                 
                 if process.returncode != 0:
                     logger.error(f"❌ aplay failed with return code {process.returncode}")

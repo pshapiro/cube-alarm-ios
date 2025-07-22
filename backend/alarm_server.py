@@ -351,11 +351,16 @@ def stop_alarm(alarm_id):
 @app.route('/api/alarms/stop', methods=['POST'])
 def stop_all_alarms():
     """Stop all active alarms."""
+    logger.info(f"🛑 DEBUG: /api/alarms/stop called - stopping all active alarms")
+    logger.info(f"🛑 DEBUG: Active alarms before stop: {list(alarm_manager.active_alarms)}")
+    
     stopped_count = 0
     for alarm_id in list(alarm_manager.active_alarms):
+        logger.info(f"🛑 DEBUG: Stopping alarm {alarm_id} via general stop endpoint")
         if alarm_manager.stop_alarm(alarm_id, solved_by_cube=False):
             stopped_count += 1
     
+    logger.info(f"🛑 DEBUG: Stopped {stopped_count} alarms via general stop endpoint")
     return jsonify({'message': f'Stopped {stopped_count} active alarms'})
 
 @app.route('/api/cube/status', methods=['GET'])
