@@ -116,19 +116,20 @@ const ActiveAlarm: React.FC<ActiveAlarmProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    // Auto-stop if cube is solved and required
-    // But only after alarm has been active for at least 5 seconds to prevent immediate stops
-    if (alarm.requires_cube_solve && cubeSolved) {
-      const timeActive = Date.now() - alarmStartTime;
-      if (timeActive >= 5000) { // 5 second minimum active time
-        console.log('🎯 ActiveAlarm: Auto-stopping alarm - cube solved after', timeActive, 'ms');
-        onStop();
-      } else {
-        console.log('🕒 ActiveAlarm: Cube solved but alarm too new (', timeActive, 'ms) - waiting...');
-      }
-    }
-  }, [alarm.requires_cube_solve, cubeSolved, onStop, alarmStartTime]);
+  // TEMPORARILY DISABLED: Auto-stop logic for testing
+  // useEffect(() => {
+  //   // Auto-stop if cube is solved and required
+  //   // But only after alarm has been active for at least 5 seconds to prevent immediate stops
+  //   if (alarm.requires_cube_solve && cubeSolved) {
+  //     const timeActive = Date.now() - alarmStartTime;
+  //     if (timeActive >= 5000) { // 5 second minimum active time
+  //       console.log('🎯 ActiveAlarm: Auto-stopping alarm - cube solved after', timeActive, 'ms');
+  //       onStop();
+  //     } else {
+  //       console.log('🕒 ActiveAlarm: Cube solved but alarm too new (', timeActive, 'ms) - waiting...');
+  //     }
+  //   }
+  // }, [alarm.requires_cube_solve, cubeSolved, onStop, alarmStartTime]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
