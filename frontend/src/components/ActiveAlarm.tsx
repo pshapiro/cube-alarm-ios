@@ -93,15 +93,19 @@ const ActiveAlarm: React.FC<ActiveAlarmProps> = ({
     };
   }, [audioContext]);
 
-  // Stop alarm sound when cube is solved
+  // Stop alarm when cube is solved, but only after 5-second minimum to prevent immediate stops
   useEffect(() => {
     console.log('🔊 ActiveAlarm: cubeSolved changed to:', cubeSolved);
-    if (cubeSolved) {
-      console.log('🔇 ActiveAlarm: Stopping alarm sound due to cube solved');
-      console.log('🛑 ActiveAlarm: CALLING onStop() due to cubeSolved = true');
-      onStop(); // Actually stop the alarm, not just the sound
+    if (cubeSolved && alarm.requires_cube_solve) {
+      const alarmAge = Date.now() - alarmStartTime;
+      if (alarmAge >= 5000) { // 5 second minimum
+        console.log('🛑 ActiveAlarm: Stopping alarm due to cube solved after', alarmAge, 'ms');
+        onStop();
+      } else {
+        console.log('🕒 ActiveAlarm: Cube solved but alarm too new (', alarmAge, 'ms) - ignoring');
+      }
     }
-  }, [cubeSolved, onStop]);
+  }, [cubeSolved, onStop, alarm.requires_cube_solve, alarmStartTime]);
 
   // Cleanup on unmount
   useEffect(() => {
