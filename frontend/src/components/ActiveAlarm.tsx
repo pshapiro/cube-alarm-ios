@@ -23,6 +23,7 @@ const ActiveAlarm: React.FC<ActiveAlarmProps> = ({
 }) => {
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
+  const [alarmStartTime] = useState(Date.now());
   const isPlayingRef = useRef(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -117,10 +118,17 @@ const ActiveAlarm: React.FC<ActiveAlarmProps> = ({
 
   useEffect(() => {
     // Auto-stop if cube is solved and required
+    // But only after alarm has been active for at least 5 seconds to prevent immediate stops
     if (alarm.requires_cube_solve && cubeSolved) {
-      onStop();
+      const timeActive = Date.now() - alarmStartTime;
+      if (timeActive >= 5000) { // 5 second minimum active time
+        console.log('🎯 ActiveAlarm: Auto-stopping alarm - cube solved after', timeActive, 'ms');
+        onStop();
+      } else {
+        console.log('🕒 ActiveAlarm: Cube solved but alarm too new (', timeActive, 'ms) - waiting...');
+      }
     }
-  }, [alarm.requires_cube_solve, cubeSolved, onStop]);
+  }, [alarm.requires_cube_solve, cubeSolved, onStop, alarmStartTime]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
