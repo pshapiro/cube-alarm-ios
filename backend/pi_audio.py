@@ -247,17 +247,27 @@ class PiAudioManager:
         """Play alarm sound using aplay (ALSA)."""
         try:
             sound_file = os.environ.get('ALARM_SOUND_FILE', 'sounds/alarm.wav')
+            logger.info(f"🔊 DEBUG: Attempting aplay with file: {sound_file}")
+            
             if os.path.exists(sound_file):
                 # Force output to analog audio (card 0) to avoid HDMI routing issues
+                logger.info(f"🔊 DEBUG: Starting aplay subprocess for {sound_file}")
                 process = subprocess.Popen(['aplay', '-D', 'plughw:0,0', sound_file], 
-                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 
                 # Store process reference if alarm_id provided (for termination)
                 if alarm_id:
                     self.active_processes[alarm_id] = process
+                    logger.info(f"🔊 DEBUG: Stored process {process.pid} for alarm {alarm_id}")
                 
                 # Wait for process to complete
-                process.wait()
+                stdout, stderr = process.communicate()
+                logger.info(f"🔊 DEBUG: aplay finished with return code: {process.returncode}")
+                
+                if process.returncode != 0:
+                    logger.error(f"❌ aplay failed with return code {process.returncode}")
+                    logger.error(f"❌ aplay stdout: {stdout.decode() if stdout else 'None'}")
+                    logger.error(f"❌ aplay stderr: {stderr.decode() if stderr else 'None'}")
                 
                 # Clean up process reference
                 if alarm_id and alarm_id in self.active_processes:
@@ -269,10 +279,10 @@ class PiAudioManager:
                 logger.info(f"🔊 Sound file {sound_file} not found, using speaker-test fallback")
                 return self._play_speaker_test(alarm_id)
         except subprocess.CalledProcessError as e:
-            logger.error(f"❌ aplay failed: {e}")
+            logger.error(f"❌ aplay CalledProcessError: {e}")
             return self._play_speaker_test(alarm_id)
         except Exception as e:
-            logger.error(f"❌ aplay error: {e}")
+            logger.error(f"❌ aplay unexpected error: {e}")
             return False
     
     def _play_paplay(self) -> bool:
