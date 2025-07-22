@@ -19,6 +19,7 @@ class PiAudioManager:
     
     def __init__(self):
         self.active_alarms: Dict[str, threading.Thread] = {}
+        self.active_processes: Dict[str, subprocess.Popen] = {}  # alarm_id -> subprocess.Popen object
         self.is_pi = self._detect_raspberry_pi()
         self.audio_method = self._detect_audio_method()
         
@@ -110,6 +111,19 @@ class PiAudioManager:
         
         logger.info(f"🔇 Stopping alarm sound for ID: {alarm_id}")
         
+        # Terminate any active audio process first
+        if alarm_id in self.active_processes:
+            process = self.active_processes.pop(alarm_id)
+            try:
+                process.terminate()
+                process.wait(timeout=1)  # Wait up to 1 second for graceful termination
+                logger.info(f"🔇 Terminated audio process for {alarm_id}")
+            except subprocess.TimeoutExpired:
+                process.kill()  # Force kill if it doesn't terminate gracefully
+                logger.info(f"🔇 Force killed audio process for {alarm_id}")
+            except Exception as e:
+                logger.error(f"❌ Error terminating audio process: {e}")
+        
         # Remove from active alarms (this will stop the loop)
         thread = self.active_alarms.pop(alarm_id, None)
         
@@ -132,7 +146,7 @@ class PiAudioManager:
         
         try:
             while alarm_id in self.active_alarms:
-                success = self._play_alarm_sound_once()
+                success = self._play_alarm_sound_once(alarm_id)
                 if not success:
                     logger.error(f"❌ Failed to play alarm sound for {alarm_label}")
                     break
@@ -147,21 +161,24 @@ class PiAudioManager:
             logger.error(f"❌ Error in alarm sound loop for {alarm_label}: {e}")
         
         finally:
+            # Clean up any remaining process reference
+            if alarm_id in self.active_processes:
+                self.active_processes.pop(alarm_id, None)
             logger.info(f"🔇 Alarm sound loop ended for: {alarm_label}")
     
-    def _play_alarm_sound_once(self) -> bool:
+    def _play_alarm_sound_once(self, alarm_id: str = None) -> bool:
         """Play alarm sound once using the best available method."""
         try:
             if self.audio_method == 'pygame':
-                return self._play_pygame()
+                return self._play_pygame(alarm_id)
             elif self.audio_method == 'aplay':
-                return self._play_aplay()
+                return self._play_aplay(alarm_id)
             elif self.audio_method == 'paplay':
-                return self._play_paplay()
+                return self._play_paplay(alarm_id)
             elif self.audio_method == 'afplay':
-                return self._play_afplay()
+                return self._play_afplay(alarm_id)
             elif self.audio_method == 'speaker-test':
-                return self._play_speaker_test()
+                return self._play_speaker_test(alarm_id)
             else:
                 logger.error("❌ No audio method available")
                 return False
@@ -226,22 +243,37 @@ class PiAudioManager:
         except Exception as e:
             logger.error(f"❌ Error generating beep: {e}")
     
-    def _play_aplay(self) -> bool:
+    def _play_aplay(self, alarm_id: str = None) -> bool:
         """Play alarm sound using aplay (ALSA)."""
         try:
             sound_file = os.environ.get('ALARM_SOUND_FILE', 'sounds/alarm.wav')
             if os.path.exists(sound_file):
                 # Force output to analog audio (card 0) to avoid HDMI routing issues
-                subprocess.run(['aplay', '-D', 'plughw:0,0', sound_file], check=True, 
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                return True
+                process = subprocess.Popen(['aplay', '-D', 'plughw:0,0', sound_file], 
+                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                
+                # Store process reference if alarm_id provided (for termination)
+                if alarm_id:
+                    self.active_processes[alarm_id] = process
+                
+                # Wait for process to complete
+                process.wait()
+                
+                # Clean up process reference
+                if alarm_id and alarm_id in self.active_processes:
+                    self.active_processes.pop(alarm_id, None)
+                
+                return process.returncode == 0
             else:
                 # Use speaker-test as fallback - this is more reliable than missing WAV files
                 logger.info(f"🔊 Sound file {sound_file} not found, using speaker-test fallback")
-                return self._play_speaker_test()
+                return self._play_speaker_test(alarm_id)
         except subprocess.CalledProcessError as e:
             logger.error(f"❌ aplay failed: {e}")
-            return self._play_speaker_test()
+            return self._play_speaker_test(alarm_id)
+        except Exception as e:
+            logger.error(f"❌ aplay error: {e}")
+            return False
     
     def _play_paplay(self) -> bool:
         """Play alarm sound using paplay (PulseAudio)."""
@@ -283,16 +315,31 @@ class PiAudioManager:
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
             return False
     
-    def _play_speaker_test(self) -> bool:
+    def _play_speaker_test(self, alarm_id: str = None) -> bool:
         """Play alarm sound using speaker-test (fallback)."""
         try:
             # Force output to analog audio (card 0) and play a 2-second 800Hz tone
-            subprocess.run(['speaker-test', '-D', 'plughw:0,0', '-t', 'sine', '-f', '800', '-l', '2'], 
-                         check=True, timeout=5,
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            process = subprocess.Popen(['speaker-test', '-D', 'plughw:0,0', '-t', 'sine', '-f', '800', '-l', '2'], 
+                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            # Store process reference if alarm_id provided (for termination)
+            if alarm_id:
+                self.active_processes[alarm_id] = process
+            
+            # Wait for process to complete (with timeout)
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                return False
+            
+            # Clean up process reference
+            if alarm_id and alarm_id in self.active_processes:
+                self.active_processes.pop(alarm_id, None)
+            
             logger.info("🔊 speaker-test alarm sound played successfully")
-            return True
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            return process.returncode == 0
+        except Exception as e:
             logger.error(f"❌ speaker-test failed: {e}")
             return False
     
