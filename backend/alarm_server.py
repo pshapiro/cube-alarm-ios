@@ -104,6 +104,14 @@ class AlarmManager:
         
         logger.info(f"🚨 Alarm triggered: {alarm.label} at {alarm.time}")
         
+        # CRITICAL: Ensure BLE worker is running for cube solve detection
+        from ble_worker import start_ble_worker, is_ble_worker_running
+        if not is_ble_worker_running():
+            logger.info("🔍 ALARM: Starting BLE worker to detect cube solve")
+            start_ble_worker()
+        else:
+            logger.info("🔍 ALARM: BLE worker already running for cube solve detection")
+        
         # Start playing alarm sound locally (for Raspberry Pi deployment)
         self._start_alarm_sound(alarm_id)
         
