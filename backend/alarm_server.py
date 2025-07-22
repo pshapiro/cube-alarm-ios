@@ -351,7 +351,12 @@ def stop_alarm(alarm_id):
 @app.route('/api/alarms/stop', methods=['POST'])
 def stop_all_alarms():
     """Stop all active alarms."""
+    from flask import request
     logger.info(f"🛑 DEBUG: /api/alarms/stop called - stopping all active alarms")
+    logger.info(f"🛑 DEBUG: Request from IP: {request.remote_addr}")
+    logger.info(f"🛑 DEBUG: Request headers: {dict(request.headers)}")
+    logger.info(f"🛑 DEBUG: Request method: {request.method}")
+    logger.info(f"🛑 DEBUG: Request data: {request.get_data()}")
     logger.info(f"🛑 DEBUG: Active alarms before stop: {list(alarm_manager.active_alarms)}")
     
     stopped_count = 0
