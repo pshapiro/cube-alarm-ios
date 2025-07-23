@@ -53,6 +53,15 @@ class AlarmManager:
         self.cube_connected = False
         self.last_cube_state = ""
         
+        # Initialize shared audio manager for Pi audio playback
+        try:
+            from pi_audio import PiAudioManager
+            self.audio_manager = PiAudioManager()
+            logger.info("🔊 Initialized shared PiAudioManager instance")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not initialize PiAudioManager: {e}")
+            self.audio_manager = None
+        
     def add_alarm(self, alarm: Alarm) -> bool:
         """Add a new alarm."""
         self.alarms[alarm.id] = alarm
@@ -218,14 +227,15 @@ class AlarmManager:
     def _start_alarm_sound(self, alarm_id: str):
         """Start playing alarm sound locally using Pi Audio Manager."""
         try:
-            from pi_audio import PiAudioManager
+            if not self.audio_manager:
+                logger.error("❌ No audio manager available for alarm sound")
+                return
             
             alarm = self.alarms.get(alarm_id)
             alarm_label = alarm.label if alarm else "Unknown Alarm"
             
-            # Create PiAudioManager instance and start alarm sound
-            audio_manager = PiAudioManager()
-            success = audio_manager.play_alarm_sound(alarm_id)
+            # Use shared PiAudioManager instance to start alarm sound
+            success = self.audio_manager.play_alarm_sound(alarm_id)
             if success:
                 logger.info(f"🔊 Started alarm sound for: {alarm_label}")
             else:
@@ -237,14 +247,15 @@ class AlarmManager:
     def _stop_alarm_sound(self, alarm_id: str):
         """Stop playing alarm sound locally using Pi Audio Manager."""
         try:
-            from pi_audio import PiAudioManager
+            if not self.audio_manager:
+                logger.error("❌ No audio manager available to stop alarm sound")
+                return
             
             alarm = self.alarms.get(alarm_id)
             alarm_label = alarm.label if alarm else "Unknown Alarm"
             
-            # Create PiAudioManager instance and stop alarm sound
-            audio_manager = PiAudioManager()
-            success = audio_manager.stop_alarm_sound(alarm_id)
+            # Use shared PiAudioManager instance to stop alarm sound
+            success = self.audio_manager.stop_alarm_sound(alarm_id)
             if success:
                 logger.info(f"🔇 Stopped alarm sound for: {alarm_label}")
             else:
