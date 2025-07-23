@@ -286,10 +286,17 @@ class GanGen3ProtocolDriver(GanProtocolDriver):
                     print(f"🔍 DEBUG: is_solved_state() = {current_solved_state}, last_solved = {getattr(self, 'last_solved_state', None)}")
                     
                     # Only emit solved event if state changed from not-solved to solved
+                    print(f"🔍 DEBUG: Checking solve transition: current={current_solved_state}, last={self.last_solved_state}")
+                    print(f"🔍 DEBUG: Condition check: current_solved_state={current_solved_state}, last_solved_state != True = {self.last_solved_state != True}")
+                    print(f"🔍 DEBUG: Overall condition: {current_solved_state and self.last_solved_state != True}")
+                    
                     if current_solved_state and self.last_solved_state != True:
-                        print("🎉 Cube solved!")
+                        print("🎉 Cube solved! Creating SolvedEvent")
                         solved_event = SolvedEvent(serial=facelets_event.serial, timestamp=time.time())
                         events.append(solved_event)
+                        print(f"🔍 DEBUG: SolvedEvent created and added to events list (total events: {len(events)})")
+                    else:
+                        print(f"🚫 DEBUG: No solve event - condition not met")
                     
                     # Update tracked solved state
                     self.last_solved_state = current_solved_state
