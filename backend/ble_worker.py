@@ -28,13 +28,13 @@ _solve_callbacks: List[Callable[[], None]] = []
 _move_callbacks: List[Callable[[dict], None]] = []
 _connection_callbacks: List[Callable[[bool], None]] = []
 _connection_time: Optional[float] = None  # Track when cube was connected
-_CONNECTION_SOLVED_DELAY = 1.0  # Ignore solved events for 1 second after connection (except during alarms)
+_CONNECTION_SOLVED_DELAY = 0.5  # Reduced from 1.0 to 0.5 seconds for faster alarm response
 
-# Enhanced configuration
+# Enhanced configuration - optimized for faster connection
 VALID_LENGTHS = (18, 20)
-RECONNECT_DELAY = 5
-SCAN_TIMEOUT = 10
-MAX_RECONNECT_ATTEMPTS = 3
+RECONNECT_DELAY = 2  # Reduced from 5 to 2 seconds
+SCAN_TIMEOUT = 5     # Reduced from 10 to 5 seconds  
+MAX_RECONNECT_ATTEMPTS = 2  # Reduced from 3 to 2 attempts
 
 # Manual override mapping of device names (or address fragments) to real MAC
 _REAL_MAC_OVERRIDE: dict[str, str] = {
@@ -348,11 +348,12 @@ async def _discover_cube(timeout: int = SCAN_TIMEOUT):
         # Scan until timeout or until we captured a real MAC for at least one GAN device
         end_time = asyncio.get_event_loop().time() + timeout
         while asyncio.get_event_loop().time() < end_time:
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(0.1)  # Reduced from 0.2 to 0.1 for faster detection
             # quick check: any captured mac with non-zero bytes and GAN name?
             for d in scanner.discovered_devices:
                 mac = _real_mac_map.get(d.address)
                 if mac and mac[:2] != "00" and d.name and any(p in d.name.upper() for p in ["GAN", "MG", "AICUBE"]):
+                    _log(f"🚀 Found target cube quickly: {d.name} with MAC {mac}")
                     end_time = asyncio.get_event_loop().time()  # break outer loop
                     break
         devices = scanner.discovered_devices
@@ -489,8 +490,8 @@ async def _ble_loop() -> None:
             # Discover cube and real MAC
             device, real_mac = await _discover_cube()
             if not device:
-                _log(f"⏳ No cube found. Retrying in {SCAN_TIMEOUT}s...")
-                await asyncio.sleep(SCAN_TIMEOUT)
+                _log(f"⏳ No cube found. Retrying in {RECONNECT_DELAY}s...")  # Use shorter delay
+                await asyncio.sleep(RECONNECT_DELAY)  # Reduced from SCAN_TIMEOUT to RECONNECT_DELAY
                 continue
             
             # Connect to cube
