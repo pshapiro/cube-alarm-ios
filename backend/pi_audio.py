@@ -289,10 +289,10 @@ class PiAudioManager:
                 clean_env = os.environ.copy()
                 clean_env.pop('PULSE_RUNTIME_PATH', None)
                 clean_env.pop('PULSE_RUNTIME_DIR', None)
-                clean_env['ALSA_PCM_CARD'] = '0'  # Force ALSA to use card 0
+                clean_env['ALSA_PCM_CARD'] = '1'  # Force ALSA to use card 1 (analog headphone jack)
                 clean_env['ALSA_PCM_DEVICE'] = '0'  # Force ALSA to use device 0
                 
-                process = subprocess.Popen(['sh', '-c', f'while true; do aplay -D plughw:0,0 "{sound_file}"; done'], 
+                process = subprocess.Popen(['sh', '-c', f'while true; do aplay -D plughw:1,0 "{sound_file}"; done'], 
                                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                          preexec_fn=os.setsid, env=clean_env)  # Create new process group with clean env
                 
