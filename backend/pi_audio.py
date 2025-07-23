@@ -19,7 +19,8 @@ class PiAudioManager:
     
     def __init__(self):
         self.active_alarms: Dict[str, threading.Thread] = {}
-        self.active_processes: Dict[str, subprocess.Popen] = {}  # alarm_id -> subprocess.Popen object
+        self.active_processes: Dict[str, subprocess.Popen] = {}
+        self.stop_events: Dict[str, threading.Event] = {}  # alarm_id -> subprocess.Popen object
         self.is_pi = self._detect_raspberry_pi()
         self.audio_method = self._detect_audio_method()
         
@@ -92,10 +93,14 @@ class PiAudioManager:
         logger.info(f"🔊 DEBUG: Current working directory: {os.getcwd()}")
         logger.info(f"🔊 DEBUG: Environment variables: PULSE_RUNTIME_PATH={os.environ.get('PULSE_RUNTIME_PATH')}, XDG_RUNTIME_DIR={os.environ.get('XDG_RUNTIME_DIR')}")
         
+        # Create stop event for this alarm
+        stop_event = threading.Event()
+        self.stop_events[alarm_id] = stop_event
+        
         # Create and start alarm thread
         alarm_thread = threading.Thread(
             target=self._alarm_sound_loop,
-            args=(alarm_id, alarm_id),
+            args=(alarm_id, alarm_id, stop_event),
             daemon=True
         )
         alarm_thread.start()
@@ -107,29 +112,37 @@ class PiAudioManager:
         """Stop playing alarm sound for given alarm ID."""
         if alarm_id not in self.active_alarms:
             logger.warning(f"⚠️ No alarm sound playing for {alarm_id}")
-            return True
+            return False
         
-        logger.info(f"🔇 Stopping alarm sound for ID: {alarm_id}")
+        logger.info(f"🔇 Stopping alarm sound for: {alarm_id}")
         
-        # Terminate any active audio process first
+        # Set stop event to signal the audio loop to stop
+        if alarm_id in self.stop_events:
+            self.stop_events[alarm_id].set()
+        
+        # Kill any active subprocess for this alarm
         if alarm_id in self.active_processes:
-            process = self.active_processes.pop(alarm_id)
+            process = self.active_processes[alarm_id]
             try:
                 process.terminate()
-                process.wait(timeout=1)  # Wait up to 1 second for graceful termination
-                logger.info(f"🔇 Terminated audio process for {alarm_id}")
+                process.wait(timeout=2)  # Give it 2 seconds to terminate gracefully
             except subprocess.TimeoutExpired:
-                process.kill()  # Force kill if it doesn't terminate gracefully
-                logger.info(f"🔇 Force killed audio process for {alarm_id}")
+                process.kill()  # Force kill if it doesn't terminate
             except Exception as e:
-                logger.error(f"❌ Error terminating audio process: {e}")
+                logger.error(f"❌ Error terminating process for {alarm_id}: {e}")
+            finally:
+                self.active_processes.pop(alarm_id, None)
         
-        # Remove from active alarms (this will stop the loop)
+        # Remove from active alarms and wait for thread to finish
         thread = self.active_alarms.pop(alarm_id, None)
-        
-        # Wait briefly for thread to finish
         if thread and thread.is_alive():
-            thread.join(timeout=2)
+            # Thread should exit naturally when stop event is set
+            thread.join(timeout=3)  # Wait up to 3 seconds for thread to finish
+            if thread.is_alive():
+                logger.warning(f"⚠️ Alarm thread for {alarm_id} did not finish gracefully")
+        
+        # Clean up stop event
+        self.stop_events.pop(alarm_id, None)
         
         return True
     
@@ -140,12 +153,12 @@ class PiAudioManager:
         for alarm_id in alarm_ids:
             self.stop_alarm_sound(alarm_id)
     
-    def _alarm_sound_loop(self, alarm_id: str, alarm_label: str):
+    def _alarm_sound_loop(self, alarm_id: str, alarm_label: str, stop_event: threading.Event):
         """Main alarm sound loop - runs until alarm is stopped."""
         logger.info(f"🎵 Starting alarm sound loop for: {alarm_label}")
         
         try:
-            while alarm_id in self.active_alarms:
+            while not stop_event.is_set():
                 success = self._play_alarm_sound_once(alarm_id)
                 if not success:
                     logger.error(f"❌ Failed to play alarm sound for {alarm_label}")
@@ -153,7 +166,7 @@ class PiAudioManager:
                 
                 # Wait between beeps (check for stop every 0.1s)
                 for _ in range(10):  # 1 second total, checking every 0.1s
-                    if alarm_id not in self.active_alarms:
+                    if stop_event.is_set():
                         break
                     time.sleep(0.1)
         
