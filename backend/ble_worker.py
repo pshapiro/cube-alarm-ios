@@ -28,7 +28,7 @@ _solve_callbacks: List[Callable[[], None]] = []
 _move_callbacks: List[Callable[[dict], None]] = []
 _connection_callbacks: List[Callable[[bool], None]] = []
 _connection_time: Optional[float] = None  # Track when cube was connected
-_CONNECTION_SOLVED_DELAY = 1.0  # Ignore solved events for 1 second after connection
+_CONNECTION_SOLVED_DELAY = 1.0  # Ignore solved events for 1 second after connection (except during alarms)
 
 # Enhanced configuration
 VALID_LENGTHS = (18, 20)
@@ -202,10 +202,25 @@ async def _handle_cube_event(event: CubeEvent) -> None:
         if event.state.is_solved():
             _log(f"🎉 Cube solved! (detected from facelets state)")
             
-            # Check connection delay before processing solved event
-            if _connection_time and (time.time() - _connection_time) < _CONNECTION_SOLVED_DELAY:
-                _log(f"🚫 Ignoring solved event - too soon after connection ({time.time() - _connection_time:.1f}s < {_CONNECTION_SOLVED_DELAY}s)")
-                return
+            # Check connection delay before processing solved event (but allow during alarms)
+            connection_delay = _connection_time and (time.time() - _connection_time) < _CONNECTION_SOLVED_DELAY
+            if connection_delay:
+                # Check if there are active alarms - if so, allow immediate solve detection
+                try:
+                    import requests
+                    response = requests.get('http://localhost:5001/api/alarms/active', timeout=0.5)
+                    active_alarms = response.json() if response.status_code == 200 else []
+                    has_active_alarms = len(active_alarms) > 0
+                    
+                    if has_active_alarms:
+                        _log(f"✅ Allowing solved event despite connection delay - active alarm detected ({time.time() - _connection_time:.1f}s < {_CONNECTION_SOLVED_DELAY}s)")
+                    else:
+                        _log(f"🚫 Ignoring solved event - too soon after connection ({time.time() - _connection_time:.1f}s < {_CONNECTION_SOLVED_DELAY}s)")
+                        return
+                except Exception as e:
+                    # If we can't check alarms, use the original delay logic
+                    _log(f"🚫 Ignoring solved event - too soon after connection ({time.time() - _connection_time:.1f}s < {_CONNECTION_SOLVED_DELAY}s) [alarm check failed: {e}]")
+                    return
             
             if socketio:
                 socketio.emit("solved", {"timestamp": time.time()})
@@ -223,10 +238,25 @@ async def _handle_cube_event(event: CubeEvent) -> None:
     elif event.event_type == "SOLVED":
         _log(f"Event: {event.event_type}")
         
-        # Check if we should ignore solved events immediately after connection
-        if _connection_time and (time.time() - _connection_time) < _CONNECTION_SOLVED_DELAY:
-            _log(f"🚫 Ignoring solved event - too soon after connection ({time.time() - _connection_time:.1f}s < {_CONNECTION_SOLVED_DELAY}s)")
-            return
+        # Check if we should ignore solved events immediately after connection (but allow during alarms)
+        connection_delay = _connection_time and (time.time() - _connection_time) < _CONNECTION_SOLVED_DELAY
+        if connection_delay:
+            # Check if there are active alarms - if so, allow immediate solve detection
+            try:
+                import requests
+                response = requests.get('http://localhost:5001/api/alarms/active', timeout=0.5)
+                active_alarms = response.json() if response.status_code == 200 else []
+                has_active_alarms = len(active_alarms) > 0
+                
+                if has_active_alarms:
+                    _log(f"✅ Allowing solved event despite connection delay - active alarm detected ({time.time() - _connection_time:.1f}s < {_CONNECTION_SOLVED_DELAY}s)")
+                else:
+                    _log(f"🚫 Ignoring solved event - too soon after connection ({time.time() - _connection_time:.1f}s < {_CONNECTION_SOLVED_DELAY}s)")
+                    return
+            except Exception as e:
+                # If we can't check alarms, use the original delay logic
+                _log(f"🚫 Ignoring solved event - too soon after connection ({time.time() - _connection_time:.1f}s < {_CONNECTION_SOLVED_DELAY}s) [alarm check failed: {e}]")
+                return
         else:
             _log(f"✅ Accepting solved event - {time.time() - (_connection_time or 0):.1f}s after connection")
         
