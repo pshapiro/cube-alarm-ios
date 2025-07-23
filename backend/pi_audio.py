@@ -193,9 +193,8 @@ class PiAudioManager:
             logger.error(f"❌ Error in alarm sound loop for {alarm_label}: {e}")
         
         finally:
-            # Clean up any remaining process reference
-            if alarm_id in self.active_processes:
-                self.active_processes.pop(alarm_id, None)
+            # Don't clean up process reference here - let stop_alarm_sound handle it
+            # This prevents race condition where stop_alarm_sound can't find the process
             logger.info(f"🔇 Alarm sound loop ended for: {alarm_label}")
     
     def _play_alarm_sound_once(self, alarm_id: str = None) -> bool:
