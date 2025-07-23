@@ -42,6 +42,26 @@ const App: React.FC = () => {
   
   const socketRef = useRef<Socket | null>(null);
 
+  // Global fetch logging to catch any stop API calls
+  useEffect(() => {
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+      const url = args[0];
+      if (typeof url === 'string' && url.includes('/api/alarms/stop')) {
+        console.log('🚑 GLOBAL: Fetch request to stop API detected!');
+        console.log('🚑 GLOBAL: URL:', url);
+        console.log('🚑 GLOBAL: Args:', args);
+        console.log('🚑 GLOBAL: Call stack:', new Error().stack);
+        console.log('🚑 GLOBAL: Timestamp:', new Date().toISOString());
+      }
+      return originalFetch.apply(this, args);
+    };
+    
+    return () => {
+      window.fetch = originalFetch;
+    };
+  }, []);
+
   // Initialize socket connection
   useEffect(() => {
     // Initialize socket connection
