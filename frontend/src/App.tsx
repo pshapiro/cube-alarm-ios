@@ -42,23 +42,38 @@ const App: React.FC = () => {
   
   const socketRef = useRef<Socket | null>(null);
 
-  // Global fetch logging to catch any stop API calls
+  // Global fetch and XMLHttpRequest logging to catch any stop API calls
   useEffect(() => {
+    // Override fetch
     const originalFetch = window.fetch;
     window.fetch = function(...args) {
       const url = args[0];
       if (typeof url === 'string' && url.includes('/api/alarms/stop')) {
-        console.log('🚑 GLOBAL: Fetch request to stop API detected!');
-        console.log('🚑 GLOBAL: URL:', url);
-        console.log('🚑 GLOBAL: Args:', args);
-        console.log('🚑 GLOBAL: Call stack:', new Error().stack);
-        console.log('🚑 GLOBAL: Timestamp:', new Date().toISOString());
+        console.log('🚑 GLOBAL FETCH: Stop API request detected!');
+        console.log('🚑 GLOBAL FETCH: URL:', url);
+        console.log('🚑 GLOBAL FETCH: Args:', args);
+        console.log('🚑 GLOBAL FETCH: Call stack:', new Error().stack);
+        console.log('🚑 GLOBAL FETCH: Timestamp:', new Date().toISOString());
       }
       return originalFetch.apply(this, args);
     };
     
+    // Override XMLHttpRequest
+    const originalXHROpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(method: string, url: string | URL, async?: boolean, username?: string | null, password?: string | null) {
+      if (typeof url === 'string' && url.includes('/api/alarms/stop')) {
+        console.log('🚑 GLOBAL XHR: Stop API request detected!');
+        console.log('🚑 GLOBAL XHR: Method:', method);
+        console.log('🚑 GLOBAL XHR: URL:', url);
+        console.log('🚑 GLOBAL XHR: Call stack:', new Error().stack);
+        console.log('🚑 GLOBAL XHR: Timestamp:', new Date().toISOString());
+      }
+      return originalXHROpen.call(this, method, url, async ?? true, username, password);
+    };
+    
     return () => {
       window.fetch = originalFetch;
+      XMLHttpRequest.prototype.open = originalXHROpen;
     };
   }, []);
 
