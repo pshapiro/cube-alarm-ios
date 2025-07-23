@@ -23,6 +23,9 @@ class PiAudioManager:
         self.stop_events: Dict[str, threading.Event] = {}  # alarm_id -> subprocess.Popen object
         self.is_pi = self._detect_raspberry_pi()
         self.audio_method = self._detect_audio_method()
+
+        if self.is_pi:
+            self.audio_method = 'aplay'
         
         logger.info(f"🔊 Audio Manager initialized - Platform: {'Pi' if self.is_pi else platform.system()}, Method: {self.audio_method}")
     
@@ -289,10 +292,10 @@ class PiAudioManager:
                 clean_env = os.environ.copy()
                 clean_env.pop('PULSE_RUNTIME_PATH', None)
                 clean_env.pop('PULSE_RUNTIME_DIR', None)
-                clean_env['ALSA_PCM_CARD'] = '0'  # Force ALSA to use card 1 (analog headphone jack)
+                clean_env['ALSA_PCM_CARD'] = '0'  # Force ALSA to use card 0 (analog headphone jack)
                 clean_env['ALSA_PCM_DEVICE'] = '0'  # Force ALSA to use device 0
                 
-                process = subprocess.Popen(['sh', '-c', f'while true; do aplay -D plughw:1,0 "{sound_file}"; done'], 
+                process = subprocess.Popen(['sh', '-c', f'while true; do aplay -D plughw:0,0 "{sound_file}"; done'],
                                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                          preexec_fn=os.setsid, env=clean_env)  # Create new process group with clean env
                 
