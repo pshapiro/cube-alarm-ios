@@ -158,17 +158,15 @@ class PiAudioManager:
         logger.info(f"🎵 Starting alarm sound loop for: {alarm_label}")
         
         try:
+            # Start the continuous audio playback
+            success = self._play_alarm_sound_once(alarm_id)
+            if not success:
+                logger.error(f"❌ Failed to start alarm sound for {alarm_label}")
+                return
+            
+            # Wait for stop event while audio plays continuously
             while not stop_event.is_set():
-                success = self._play_alarm_sound_once(alarm_id)
-                if not success:
-                    logger.error(f"❌ Failed to play alarm sound for {alarm_label}")
-                    break
-                
-                # Wait between beeps (check for stop every 0.1s)
-                for _ in range(10):  # 1 second total, checking every 0.1s
-                    if stop_event.is_set():
-                        break
-                    time.sleep(0.1)
+                time.sleep(0.1)  # Check for stop every 0.1s
         
         except Exception as e:
             logger.error(f"❌ Error in alarm sound loop for {alarm_label}: {e}")
@@ -264,8 +262,9 @@ class PiAudioManager:
             
             if os.path.exists(sound_file):
                 # Force output to analog audio (card 0) to avoid HDMI routing issues
-                logger.info(f"🔊 DEBUG: Starting aplay subprocess for {sound_file}")
-                process = subprocess.Popen(['aplay', '-D', 'plughw:0,0', sound_file], 
+                # Use a loop to repeat the audio file continuously
+                logger.info(f"🔊 DEBUG: Starting aplay subprocess for {sound_file} (looped)")
+                process = subprocess.Popen(['sh', '-c', f'while true; do aplay -D plughw:0,0 "{sound_file}"; done'], 
                                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 
                 # Store process reference if alarm_id provided (for termination)
@@ -273,15 +272,15 @@ class PiAudioManager:
                     self.active_processes[alarm_id] = process
                     logger.info(f"🔊 DEBUG: Stored process {process.pid} for alarm {alarm_id}")
                 
-                # Wait for process to complete with timeout
-                try:
-                    stdout, stderr = process.communicate(timeout=10)  # 10 second timeout
-                    logger.info(f"🔊 DEBUG: aplay finished with return code: {process.returncode}")
-                except subprocess.TimeoutExpired:
-                    logger.error(f"❌ aplay timed out after 10 seconds, killing process")
-                    process.kill()
+                # Check if process is still running (don't wait for completion)
+                if process.poll() is None:
+                    # Process is still running, which is good for continuous playback
+                    logger.info(f"🔊 DEBUG: aplay process {process.pid} is running")
+                    return True
+                else:
+                    # Process finished (either success or error)
                     stdout, stderr = process.communicate()
-                    logger.error(f"❌ aplay was killed due to timeout")
+                    logger.info(f"🔊 DEBUG: aplay finished with return code: {process.returncode}")
                 
                 if process.returncode != 0:
                     logger.error(f"❌ aplay failed with return code {process.returncode}")
