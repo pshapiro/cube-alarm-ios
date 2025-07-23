@@ -209,6 +209,11 @@ const App: React.FC = () => {
   };
 
   const handleStopAlarm = async () => {
+    console.log('🛑 DEBUG: handleStopAlarm called!');
+    console.log('🛑 DEBUG: Call stack:', new Error().stack);
+    console.log('🛑 DEBUG: Current activeAlarm:', activeAlarm);
+    console.log('🛑 DEBUG: Current timestamp:', new Date().toISOString());
+    
     try {
       const response = await fetch('http://192.168.1.162:5001/api/alarms/stop', {
         method: 'POST',
