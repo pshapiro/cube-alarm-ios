@@ -130,7 +130,6 @@ class PiAudioManager:
             try:
                 logger.info(f"🔇 DEBUG: Terminating process {process.pid} for {alarm_id}")
                 # Kill the entire process group to ensure shell and child processes are terminated
-                import os
                 import signal
                 try:
                     os.killpg(os.getpgid(process.pid), signal.SIGTERM)
@@ -286,7 +285,6 @@ class PiAudioManager:
                 # Force output to analog audio (card 0) to avoid HDMI routing issues
                 # Use a loop to repeat the audio file continuously
                 logger.info(f"🔊 DEBUG: Starting aplay subprocess for {sound_file} (looped)")
-                import os
                 process = subprocess.Popen(['sh', '-c', f'while true; do aplay -D plughw:0,0 "{sound_file}"; done'], 
                                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                          preexec_fn=os.setsid)  # Create new process group
