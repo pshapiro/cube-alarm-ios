@@ -110,11 +110,15 @@ class PiAudioManager:
     
     def stop_alarm_sound(self, alarm_id: str) -> bool:
         """Stop playing alarm sound for given alarm ID."""
-        if alarm_id not in self.active_alarms:
-            logger.warning(f"⚠️ No alarm sound playing for {alarm_id}")
-            return False
-        
         logger.info(f"🔇 Stopping alarm sound for: {alarm_id}")
+        
+        # Check if we have an active process (even if thread has exited)
+        has_active_process = alarm_id in self.active_processes
+        has_active_thread = alarm_id in self.active_alarms
+        
+        if not has_active_process and not has_active_thread:
+            logger.warning(f"⚠️ No alarm sound or process found for {alarm_id}")
+            return False
         
         # Set stop event to signal the audio loop to stop
         if alarm_id in self.stop_events:
@@ -124,10 +128,28 @@ class PiAudioManager:
         if alarm_id in self.active_processes:
             process = self.active_processes[alarm_id]
             try:
-                process.terminate()
-                process.wait(timeout=2)  # Give it 2 seconds to terminate gracefully
-            except subprocess.TimeoutExpired:
-                process.kill()  # Force kill if it doesn't terminate
+                logger.info(f"🔇 DEBUG: Terminating process {process.pid} for {alarm_id}")
+                # Kill the entire process group to ensure shell and child processes are terminated
+                import os
+                import signal
+                try:
+                    os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+                    logger.info(f"🔇 DEBUG: Sent SIGTERM to process group {process.pid}")
+                except ProcessLookupError:
+                    logger.info(f"🔇 DEBUG: Process group {process.pid} already terminated")
+                
+                # Wait for graceful termination
+                try:
+                    process.wait(timeout=2)
+                    logger.info(f"🔇 DEBUG: Process {process.pid} terminated gracefully")
+                except subprocess.TimeoutExpired:
+                    # Force kill if it doesn't terminate gracefully
+                    try:
+                        os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+                        logger.info(f"🔇 DEBUG: Force killed process group {process.pid}")
+                    except ProcessLookupError:
+                        logger.info(f"🔇 DEBUG: Process group {process.pid} already gone")
+                    process.wait()
             except Exception as e:
                 logger.error(f"❌ Error terminating process for {alarm_id}: {e}")
             finally:
@@ -264,8 +286,10 @@ class PiAudioManager:
                 # Force output to analog audio (card 0) to avoid HDMI routing issues
                 # Use a loop to repeat the audio file continuously
                 logger.info(f"🔊 DEBUG: Starting aplay subprocess for {sound_file} (looped)")
+                import os
                 process = subprocess.Popen(['sh', '-c', f'while true; do aplay -D plughw:0,0 "{sound_file}"; done'], 
-                                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                         preexec_fn=os.setsid)  # Create new process group
                 
                 # Store process reference if alarm_id provided (for termination)
                 if alarm_id:
