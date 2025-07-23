@@ -284,9 +284,17 @@ class PiAudioManager:
                 # Force output to analog audio (card 0) to avoid HDMI routing issues
                 # Use a loop to repeat the audio file continuously
                 logger.info(f"🔊 DEBUG: Starting aplay subprocess for {sound_file} (looped)")
+                
+                # Create clean environment without PulseAudio variables that conflict with ALSA
+                clean_env = os.environ.copy()
+                clean_env.pop('PULSE_RUNTIME_PATH', None)
+                clean_env.pop('PULSE_RUNTIME_DIR', None)
+                clean_env['ALSA_PCM_CARD'] = '0'  # Force ALSA to use card 0
+                clean_env['ALSA_PCM_DEVICE'] = '0'  # Force ALSA to use device 0
+                
                 process = subprocess.Popen(['sh', '-c', f'while true; do aplay -D plughw:0,0 "{sound_file}"; done'], 
                                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                         preexec_fn=os.setsid)  # Create new process group
+                                         preexec_fn=os.setsid, env=clean_env)  # Create new process group with clean env
                 
                 # Store process reference if alarm_id provided (for termination)
                 if alarm_id:
