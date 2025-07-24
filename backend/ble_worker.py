@@ -472,7 +472,11 @@ async def _connect_to_cube(device, real_mac: Optional[str]) -> Optional[GanCubeC
             return connection
             
         except Exception as e:
-            _log(f"❌ Connection attempt {attempt + 1} failed: {e}")
+            import traceback
+            error_details = traceback.format_exc().strip()
+            _log(
+                f"❌ Connection attempt {attempt + 1} failed: {type(e).__name__}: {e}\n{error_details}"
+            )
             if attempt < MAX_RECONNECT_ATTEMPTS - 1:
                 _log(f"⏳ Retrying in {RECONNECT_DELAY}s...")
                 await asyncio.sleep(RECONNECT_DELAY)
