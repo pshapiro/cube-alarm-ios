@@ -537,7 +537,7 @@ async def _ble_loop() -> None:
 # Global variables for BLE worker control
 _ble_task: Optional[asyncio.Task] = None
 _ble_loop_running = False
-_stop_ble_event = asyncio.Event()
+_stop_ble_event: Optional[asyncio.Event] = None
 
 def start_ble_worker(socketio_ref: Optional[SocketIO] = None) -> bool:
     """Start the BLE worker in a separate thread. Returns True if started successfully."""
@@ -552,10 +552,11 @@ def start_ble_worker(socketio_ref: Optional[SocketIO] = None) -> bool:
     
     def run_ble_worker():
         """Run BLE worker in thread."""
-        global _ble_loop_running
+        global _ble_loop_running, _stop_ble_event
         try:
             _ble_loop_running = True
-            _stop_ble_event.clear()
+            # Create a new stop event bound to this thread's event loop
+            _stop_ble_event = asyncio.Event()
             asyncio.run(_ble_loop_with_stop())
         except Exception as e:
             _log(f"❌ BLE worker error: {e}")
@@ -570,14 +571,15 @@ def start_ble_worker(socketio_ref: Optional[SocketIO] = None) -> bool:
 
 def stop_ble_worker() -> bool:
     """Stop the BLE worker to save battery. Returns True if stopped successfully."""
-    global _ble_loop_running
+    global _ble_loop_running, _stop_ble_event
     
     if not _ble_loop_running:
         _log("⚠️ BLE worker not running")
         return True
     
     _log("🛑 Stopping BLE worker to save battery...")
-    _stop_ble_event.set()
+    if _stop_ble_event:
+        _stop_ble_event.set()
     
     # Give it a moment to stop gracefully
     import time
@@ -591,13 +593,17 @@ def is_ble_worker_running() -> bool:
 
 async def _ble_loop_with_stop():
     """BLE loop that can be stopped via _stop_ble_event."""
-    global _connection
+    global _connection, _stop_ble_event
     
     _log("🚀 Starting enhanced GAN cube BLE worker...")
     _log(f"📡 Target service: {SERVICE_UUID}")
     _log(f"📊 State characteristic: {STATE_CHAR_UUID}")
     _log(f"📤 Command characteristic: {COMMAND_CHAR_UUID}")
     
+    # Safety: ensure stop event exists
+    if _stop_ble_event is None:
+        _stop_ble_event = asyncio.Event()
+
     while not _stop_ble_event.is_set():
         try:
             # Scan for cube
