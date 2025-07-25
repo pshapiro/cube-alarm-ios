@@ -1,3 +1,5 @@
+SPDX-License-Identifier: LicenseRef-CubeAlarm-Custom-Attribution
+
 Custom License: Personal and Commercial Use with Attribution  
 Copyright © 2025 Paul Shapiro
 
