@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: LicenseRef-CubeAlarm-Custom-Attribution
+# Copyright (c) 2025 Paul Shapiro
 """
 Alarm Clock Server with WebSocket support for GAN Cube integration.
 Provides REST API for alarm management and WebSocket for real-time updates.

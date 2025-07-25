@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LicenseRef-CubeAlarm-Custom-Attribution
+# Copyright (c) 2025 Paul Shapiro
 """
 Enhanced GAN Cube Protocol Driver
 Implements robust move tracking, serial number handling, and missed move recovery

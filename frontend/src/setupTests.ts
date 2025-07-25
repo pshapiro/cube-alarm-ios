@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-CubeAlarm-Custom-Attribution
+// Copyright (c) 2025 Paul Shapiro
 // jest-dom adds custom jest matchers for asserting on DOM nodes.
 // allows you to do things like:
 // expect(element).toHaveTextContent(/react/i)

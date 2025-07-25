@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: LicenseRef-CubeAlarm-Custom-Attribution
+# Copyright (c) 2025 Paul Shapiro
 """
 Raspberry Pi Audio Handler for Alarm Clock
 Handles local audio playback on Raspberry Pi with fallback options.

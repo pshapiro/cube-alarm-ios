@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LicenseRef-CubeAlarm-Custom-Attribution
+# Copyright (c) 2025 Paul Shapiro
 from __future__ import annotations
 import os
 import asyncio
