@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: LicenseRef-CubeAlarm-Custom-Attribution
+# Copyright (c) 2025 Paul Shapiro
 """
 GAN Cube Alarm Integration Module
 Connects the enhanced GAN cube backend with the Flask-SocketIO alarm system.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-CubeAlarm-Custom-Attribution
+// Copyright (c) 2025 Paul Shapiro
 import React, { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import AlarmList from './components/AlarmList';

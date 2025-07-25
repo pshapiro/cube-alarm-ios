@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LicenseRef-CubeAlarm-Custom-Attribution
+// Copyright (c) 2025 Paul Shapiro
 import React from 'react';
 import { Alarm } from '../App';
 import './AlarmList.css';

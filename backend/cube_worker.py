@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: LicenseRef-CubeAlarm-Custom-Attribution
+# Copyright (c) 2025 Paul Shapiro
 """
 GAN Cube Worker class for integration with alarm server.
 Provides a clean interface for cube events and connection management.

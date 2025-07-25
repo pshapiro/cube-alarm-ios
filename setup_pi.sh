@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: LicenseRef-CubeAlarm-Custom-Attribution
+# Copyright (c) 2025 Paul Shapiro
 
 # Raspberry Pi 3B Setup Script for Rubik's Cube Alarm Clock
 # Run this script on a fresh Raspberry Pi OS installation

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: LicenseRef-CubeAlarm-Custom-Attribution
+# Copyright (c) 2025 Paul Shapiro
 """
 Production-ready GAN Cube backend for alarm clock integration.
 Uses real MAC address extraction and robust connection handling.
