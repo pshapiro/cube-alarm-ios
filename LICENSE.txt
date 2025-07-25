@@ -1,0 +1,33 @@
+Custom License: Personal and Commercial Use with Attribution  
+Copyright © 2025 Paul Shapiro
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated hardware designs (the “Work”), to use, modify, distribute, and sell copies of the Work for personal or commercial purposes, subject to the following conditions:
+
+1. Attribution Requirement
+
+Any public use, distribution, or sale of the Work — including modified or derivative versions — must include **visible attribution** to the original author, in both software and hardware forms:
+
+a. Software:  
+   The user interface (UI), command-line interface (CLI), or application “About” section must display the text:  
+   “Built using the Cube Alarm project by Paul Shapiro”
+
+b. Hardware:  
+   Any physical product must visibly include the attribution:  
+   “Built using the Cube Alarm project by Paul Shapiro”  
+   This must appear on the device, packaging, or product insert in a clearly visible manner.
+
+2. Prohibited Uses
+
+You may not:
+- Misrepresent the origin of the Work or claim authorship of the original version.
+- Remove or obscure the required attribution.
+- Use the Work for unlawful or unethical purposes.
+
+3. No Warranty
+
+THE WORK IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.  
+THE AUTHOR DISCLAIMS ALL LIABILITY FOR ANY DAMAGES OR LOSSES RESULTING FROM THE USE OR MISUSE OF THIS WORK.
+
+---
+
+For attribution or licensing inquiries, contact: [your email or website]
