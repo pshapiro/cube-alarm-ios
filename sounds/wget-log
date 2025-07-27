@@ -1,0 +1,6 @@
+--2025-07-21 13:06:13--  https://us-east.storage.cloudconvert.com/tasks/10e2990d-b33d-4ccf-a9cd-2c699b91bfbe/alarm-clock-going-off.wav?X-Amz-Algorithm=AWS4-HMAC-SHA256
+Resolving us-east.storage.cloudconvert.com (us-east.storage.cloudconvert.com)... 2604:2dc0:10a:6f00::, 2604:2dc0:10a:9c00::, 2604:2dc0:10a:6e00::, ...
+Connecting to us-east.storage.cloudconvert.com (us-east.storage.cloudconvert.com)|2604:2dc0:10a:6f00::|:443... connected.
+HTTP request sent, awaiting response... 403 Forbidden
+2025-07-21 13:06:14 ERROR 403: Forbidden.
+
