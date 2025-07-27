@@ -77,6 +77,10 @@
   margin-bottom: 2rem;
 }
 
+.cube-viewer {
+  margin: 1rem auto;
+}
+
 .cube-instruction {
   display: flex;
   flex-direction: column;

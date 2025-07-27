@@ -2,6 +2,7 @@
 // Copyright (c) 2025 Paul Shapiro
 import React, { useEffect, useState, useRef } from 'react';
 import { Alarm } from '../App';
+import CubeViewer from './CubeViewer';
 import './ActiveAlarm.css';
 
 interface CubeState {
@@ -15,13 +16,15 @@ interface ActiveAlarmProps {
   cubeState: CubeState;
   onStop: () => Promise<void>;
   cubeSolved: boolean;
+  cubeMoves: string[];
 }
 
-const ActiveAlarm: React.FC<ActiveAlarmProps> = ({ 
-  alarm, 
-  cubeState, 
-  onStop, 
-  cubeSolved 
+const ActiveAlarm: React.FC<ActiveAlarmProps> = ({
+  alarm,
+  cubeState,
+  onStop,
+  cubeSolved,
+  cubeMoves
 }) => {
   console.log('🚨 ActiveAlarm: Component rendered with cubeSolved =', cubeSolved, 'alarm =', alarm.label);
   const [timeElapsed, setTimeElapsed] = useState(0);
@@ -181,6 +184,8 @@ const ActiveAlarm: React.FC<ActiveAlarmProps> = ({
               <span className="cube-icon">🧩</span>
               <p>Solve the Rubik's cube to stop this alarm</p>
             </div>
+
+            <CubeViewer moves={cubeMoves} />
             
             <div className={`cube-status ${cubeSolved ? 'solved' : 'scrambled'}`}>
               {cubeSolved ? (
