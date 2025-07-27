@@ -408,6 +408,38 @@ def reset_cube_state():
         logger.error(f"❌ Error resetting cube state: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/cube/connect', methods=['POST'])
+def connect_cube():
+    """Manually start the BLE worker to connect to the cube."""
+    try:
+        from ble_worker import start_ble_worker, is_ble_worker_running
+        if is_ble_worker_running():
+            logger.info("🔋 BLE worker already running - connect request ignored")
+            return jsonify({'status': 'already_running'})
+
+        start_ble_worker(socketio)
+        logger.info("🚀 BLE worker started via manual connect request")
+        return jsonify({'status': 'connecting'})
+    except Exception as e:
+        logger.error(f"❌ Error starting BLE worker: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cube/disconnect', methods=['POST'])
+def disconnect_cube():
+    """Stop the BLE worker to disconnect from the cube."""
+    try:
+        from ble_worker import stop_ble_worker, is_ble_worker_running
+        if not is_ble_worker_running():
+            logger.info("🔋 BLE worker not running - disconnect request ignored")
+            return jsonify({'status': 'not_running'})
+
+        stop_ble_worker()
+        logger.info("🛑 BLE worker stopped via manual disconnect request")
+        return jsonify({'status': 'disconnecting'})
+    except Exception as e:
+        logger.error(f"❌ Error stopping BLE worker: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/status', methods=['GET'])
 def get_status():
     """Get system status."""
