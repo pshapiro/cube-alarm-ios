@@ -9,9 +9,11 @@ interface CubeStatusProps {
   alarmCount: number;
   lastMove: string;
   onResetCubeState?: () => void;
+  onConnect?: () => void;
+  onDisconnect?: () => void;
 }
 
-const CubeStatus: React.FC<CubeStatusProps> = ({ connected, solved, alarmCount, onResetCubeState }) => {
+const CubeStatus: React.FC<CubeStatusProps> = ({ connected, solved, alarmCount, onResetCubeState, onConnect, onDisconnect }) => {
   // Debug logging
   console.log('CubeStatus render:', { connected, solved, hasResetCallback: !!onResetCubeState });
   
@@ -34,6 +36,18 @@ const CubeStatus: React.FC<CubeStatusProps> = ({ connected, solved, alarmCount, 
           {solved ? 'Solved' : 'Scrambled'}
         </span>
       </div>
+
+      {!connected && onConnect && (
+        <div className="status-item">
+          <button className="reset-cube-btn" onClick={onConnect}>🔌 Connect</button>
+        </div>
+      )}
+
+      {connected && onDisconnect && (
+        <div className="status-item">
+          <button className="reset-cube-btn" onClick={onDisconnect}>🔌 Disconnect</button>
+        </div>
+      )}
       
       {connected && onResetCubeState && (
         <div className="status-item reset-button">

@@ -6,6 +6,7 @@ import AlarmList from './components/AlarmList';
 import AlarmForm from './components/AlarmForm';
 import CubeStatus from './components/CubeStatus';
 import ActiveAlarm from './components/ActiveAlarm';
+import CubeViewer from './components/CubeViewer';
 import './App.css';
 
 export interface Alarm {
@@ -41,6 +42,7 @@ const App: React.FC = () => {
   // Socket and cube visualization
   const [socket, setSocket] = useState<Socket | null>(null);
   const [lastMove, setLastMove] = useState<string>('');
+  const [cubeMoves, setCubeMoves] = useState<string[]>([]);
   
   const socketRef = useRef<Socket | null>(null);
 
@@ -107,28 +109,21 @@ const App: React.FC = () => {
       // If we receive moves, cube must be connected
       // Don't automatically set solved=false - let solved events control this
       setCubeState(prev => ({ ...prev, connected: true, lastMove: moveStr }));
+      setCubeMoves(prev => [...prev, moveStr]);
     });
 
-    // TEMPORARILY DISABLED: WebSocket cube_solved handler for testing
-    // socket.on('cube_solved', () => {
-    //   console.log('🎉 Frontend: Received cube_solved event');
-    //   console.log('🔄 Frontend: Setting cubeState.solved = true');
-    //   setCubeState(prev => ({ ...prev, solved: true }));
-    //   
-    //   // If there's an active alarm that requires cube solve, stop it
-    //   // But only if the alarm has been active for at least 5 seconds to prevent immediate stops
-    //   if (activeAlarm && activeAlarm.requires_cube_solve) {
-    //     const alarmAge = Date.now() - new Date(activeAlarm.time).getTime();
-    //     if (alarmAge >= 5000) { // 5 second minimum
-    //       console.log('🛑 Frontend: Stopping alarm due to cube solved after', alarmAge, 'ms');
-    //       handleStopAlarm();
-    //     } else {
-    //       console.log('🕒 Frontend: Cube solved but alarm too new (', alarmAge, 'ms) - ignoring');
-    //     }
-    //   } else {
-    //     console.log('ℹ️ Frontend: No active alarm requiring cube solve');
-    //   }
-    // });
+    socket.on('cube_solved', () => {
+      console.log('🎉 Frontend: Received cube_solved event');
+      setCubeState(prev => ({ ...prev, solved: true }));
+      setCubeMoves([]);
+
+      if (activeAlarm && activeAlarm.requires_cube_solve) {
+        const alarmAge = Date.now() - new Date(activeAlarm.time).getTime();
+        if (alarmAge >= 5000) {
+          handleStopAlarm();
+        }
+      }
+    });
 
     socket.on('alarm_triggered', (data: { alarm: Alarm, timestamp: string }) => {
       console.log('Alarm triggered:', data);
@@ -138,6 +133,7 @@ const App: React.FC = () => {
     socket.on('alarm_stopped', () => {
       console.log('Alarm stopped');
       setActiveAlarm(null);
+      setCubeMoves([]);
     });
 
     // Load initial alarms and cube status
@@ -283,6 +279,22 @@ const App: React.FC = () => {
     }
   };
 
+  const handleConnectCube = async () => {
+    try {
+      await fetch('http://192.168.1.162:5001/api/cube/connect', { method: 'POST' });
+    } catch (error) {
+      console.error('Failed to connect to cube:', error);
+    }
+  };
+
+  const handleDisconnectCube = async () => {
+    try {
+      await fetch('http://192.168.1.162:5001/api/cube/disconnect', { method: 'POST' });
+    } catch (error) {
+      console.error('Failed to disconnect from cube:', error);
+    }
+  };
+
   const handleEditAlarm = (alarm: Alarm) => {
     setEditingAlarm(alarm);
     setShowAlarmForm(true);
@@ -300,11 +312,12 @@ const App: React.FC = () => {
 
   if (activeAlarm) {
     return (
-      <ActiveAlarm 
+      <ActiveAlarm
         alarm={activeAlarm}
         cubeState={cubeState}
         onStop={handleStopAlarm}
         cubeSolved={cubeState.solved}
+        cubeMoves={cubeMoves}
       />
     );
   }
@@ -313,12 +326,14 @@ const App: React.FC = () => {
     <div className="app">
       <header className="app-header">
         <h1>🧩 Rubik's Cube Alarm Clock</h1>
-        <CubeStatus 
+        <CubeStatus
           connected={cubeState.connected}
           solved={cubeState.solved}
           lastMove={cubeState.lastMove}
           alarmCount={alarms.length}
           onResetCubeState={handleResetCubeState}
+          onConnect={handleConnectCube}
+          onDisconnect={handleDisconnectCube}
         />
       </header>
 
@@ -337,6 +352,7 @@ const App: React.FC = () => {
                 Last move: <strong>{lastMove}</strong>
               </div>
             )}
+            <CubeViewer moves={cubeMoves} />
           </div>
         </div>
 
