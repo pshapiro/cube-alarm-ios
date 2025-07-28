@@ -103,6 +103,12 @@ class AlarmManager:
     def get_alarms(self) -> List[Dict]:
         """Get all alarms."""
         return [asdict(alarm) for alarm in self.alarms.values()]
+
+    def get_active_alarms(self) -> List[Dict]:
+        """Return a list of currently active alarms."""
+        return [asdict(self.alarms[alarm_id])
+                for alarm_id in self.active_alarms
+                if alarm_id in self.alarms]
     
     def trigger_alarm(self, alarm_id: str):
         """Trigger an alarm."""
@@ -305,6 +311,11 @@ alarm_manager = AlarmManager()
 def get_alarms():
     """Get all alarms."""
     return jsonify(alarm_manager.get_alarms())
+
+@app.route('/api/alarms/active', methods=['GET'])
+def get_active_alarms():
+    """Get all currently active alarms."""
+    return jsonify(alarm_manager.get_active_alarms())
 
 @app.route('/api/alarms', methods=['POST'])
 def create_alarm():
