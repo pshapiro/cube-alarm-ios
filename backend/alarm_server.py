@@ -451,6 +451,19 @@ def disconnect_cube():
         logger.error(f"❌ Error stopping BLE worker: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/cube/state', methods=['GET'])
+def get_cube_state():
+    """Get the current cube state as a facelets string."""
+    from ble_worker import get_cube_state_facelets, is_ble_worker_running
+    if not is_ble_worker_running():
+        return jsonify({'error': 'Cube not connected'}), 400
+
+    facelets = get_cube_state_facelets()
+    if facelets:
+        return jsonify({'state': facelets})
+    else:
+        return jsonify({'error': 'Could not retrieve cube state'}), 500
+
 @app.route('/api/status', methods=['GET'])
 def get_status():
     """Get system status."""
