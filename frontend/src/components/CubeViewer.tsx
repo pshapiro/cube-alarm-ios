@@ -1,30 +1,19 @@
-import React, { useEffect, useRef } from 'react';
-import "cubing/twisty";
+import React from 'react';
 import './CubeViewer.css';
 
 interface CubeViewerProps {
   moves: string[];
+  cubeState?: string;
 }
 
-const CubeViewer: React.FC<CubeViewerProps> = ({ moves }) => {
-  const playerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const player = playerRef.current?.querySelector('twisty-player') as any;
-    if (player) {
-      player.alg = moves.join(' ');
-      player.experimentalDisplay = '2d';
-    }
-  }, [moves]);
-
+const CubeViewer: React.FC<CubeViewerProps> = ({ moves, cubeState }) => {
   return (
-    <div className="cube-viewer" ref={playerRef}>
-      <twisty-player
-        background="none"
-        control-panel="none"
-        puzzle="3x3x3"
-        playback="manual"
-      ></twisty-player>
+    <div className="cube-viewer">
+      {cubeState ? (
+        <pre>{cubeState}</pre>
+      ) : (
+        <p>Moves: {moves.join(' ')}</p>
+      )}
     </div>
   );
 };

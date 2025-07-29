@@ -162,6 +162,13 @@ def is_cube_solved() -> bool:
     """Check if cube is currently solved."""
     return _connection.is_solved() if _connection else False
 
+def get_cube_state_facelets() -> Optional[str]:
+    """Get the current cube state as a facelets string."""
+    global _connection
+    if _connection and hasattr(_connection, '_cube_state'):
+        return _connection._cube_state.to_facelets_string()
+    return None
+
 async def _handle_cube_event(event: CubeEvent) -> None:
     """Enhanced event handler with solve detection and callbacks."""
     global socketio, _solve_callbacks, _move_callbacks, _connection_time

@@ -43,6 +43,7 @@ const App: React.FC = () => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [lastMove, setLastMove] = useState<string>('');
   const [cubeMoves, setCubeMoves] = useState<string[]>([]);
+  const [cubeStateString, setCubeStateString] = useState<string>('');
   
   const socketRef = useRef<Socket | null>(null);
 
@@ -295,6 +296,21 @@ const App: React.FC = () => {
     }
   };
 
+  const handleVisualizeCube = async () => {
+    try {
+      const response = await fetch('http://192.168.1.162:5001/api/cube/state');
+      if (response.ok) {
+        const data = await response.json();
+        setCubeStateString(data.state);
+        setCubeMoves([]); // Clear moves when showing full state
+      } else {
+        console.error('Failed to get cube state');
+      }
+    } catch (error) {
+      console.error('Failed to get cube state:', error);
+    }
+  };
+
   const handleEditAlarm = (alarm: Alarm) => {
     setEditingAlarm(alarm);
     setShowAlarmForm(true);
@@ -334,6 +350,7 @@ const App: React.FC = () => {
           onResetCubeState={handleResetCubeState}
           onConnect={handleConnectCube}
           onDisconnect={handleDisconnectCube}
+          onVisualizeCube={handleVisualizeCube}
         />
       </header>
 
@@ -352,7 +369,7 @@ const App: React.FC = () => {
                 Last move: <strong>{lastMove}</strong>
               </div>
             )}
-            <CubeViewer moves={cubeMoves} />
+            <CubeViewer moves={cubeMoves} cubeState={cubeStateString} />
           </div>
         </div>
 

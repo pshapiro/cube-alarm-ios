@@ -11,9 +11,10 @@ interface CubeStatusProps {
   onResetCubeState?: () => void;
   onConnect?: () => void;
   onDisconnect?: () => void;
+  onVisualizeCube?: () => void;
 }
 
-const CubeStatus: React.FC<CubeStatusProps> = ({ connected, solved, alarmCount, onResetCubeState, onConnect, onDisconnect }) => {
+const CubeStatus: React.FC<CubeStatusProps> = ({ connected, solved, alarmCount, onResetCubeState, onConnect, onDisconnect, onVisualizeCube }) => {
   // Debug logging
   console.log('CubeStatus render:', { connected, solved, hasResetCallback: !!onResetCubeState });
   
@@ -57,6 +58,14 @@ const CubeStatus: React.FC<CubeStatusProps> = ({ connected, solved, alarmCount, 
             title="Reset cube state to solved (like official GAN app)"
           >
             🔄 Reset State
+          </button>
+        </div>
+      )}
+
+      {connected && onVisualizeCube && (
+        <div className="status-item">
+          <button className="reset-cube-btn" onClick={onVisualizeCube}>
+            👁️ Visualize Cube
           </button>
         </div>
       )}
