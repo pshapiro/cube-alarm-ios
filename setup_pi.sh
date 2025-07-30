@@ -77,11 +77,11 @@ else
     print_status "Run 'sudo raspi-config' and go to Advanced Options > Audio"
 fi
 
-# Create project directory
-PROJECT_DIR="/home/pi/cube-alarm"
+# Create project directory inside the current user's home
+PROJECT_DIR="$HOME/cube-alarm"
 if [ ! -d "$PROJECT_DIR" ]; then
     print_status "Cloning project repository..."
-    cd /home/pi
+    cd "$HOME"
     git clone https://github.com/pshapiro/cube-alarm.git
     cd cube-alarm
     print_success "Project cloned"
@@ -121,7 +121,7 @@ if [ ! -f .env ]; then
 # Raspberry Pi Environment Configuration
 CUBE_MAC=CF:AA:79:C9:96:9C
 FLASK_ENV=production
-ALARM_SOUND_FILE=/home/pi/cube-alarm/sounds/alarm.wav
+ALARM_SOUND_FILE=$PROJECT_DIR/sounds/alarm.wav
 PI_DEPLOYMENT=true
 EOF
     print_success "Environment file created"
