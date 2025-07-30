@@ -6,7 +6,6 @@ import AlarmList from './components/AlarmList';
 import AlarmForm from './components/AlarmForm';
 import CubeStatus from './components/CubeStatus';
 import ActiveAlarm from './components/ActiveAlarm';
-import CubeViewer from './components/CubeViewer';
 import './App.css';
 
 export interface Alarm {
@@ -352,7 +351,6 @@ const App: React.FC = () => {
                 Last move: <strong>{lastMove}</strong>
               </div>
             )}
-            <CubeViewer moves={cubeMoves} />
           </div>
         </div>
 

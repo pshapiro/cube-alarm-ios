@@ -2,7 +2,6 @@
 // Copyright (c) 2025 Paul Shapiro
 import React, { useEffect, useState, useRef } from 'react';
 import { Alarm } from '../App';
-import CubeViewer from './CubeViewer';
 import './ActiveAlarm.css';
 
 interface CubeState {
@@ -184,8 +183,6 @@ const ActiveAlarm: React.FC<ActiveAlarmProps> = ({
               <span className="cube-icon">🧩</span>
               <p>Solve the Rubik's cube to stop this alarm</p>
             </div>
-
-            <CubeViewer moves={cubeMoves} />
             
             <div className={`cube-status ${cubeSolved ? 'solved' : 'scrambled'}`}>
               {cubeSolved ? (
