@@ -192,6 +192,7 @@ class AlarmManager:
         
         # Emit cube move update
         socketio.emit('cube_move', {
+            'move': move.move,
             'face': move.face,
             'direction': move.direction,
             'timestamp': datetime.now().isoformat()

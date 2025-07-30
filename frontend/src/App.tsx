@@ -103,9 +103,9 @@ const App: React.FC = () => {
       setCubeState(prev => ({ ...prev, connected: data.connected }));
     });
 
-    socket.on('cube_move', (data: { face: string; direction: string }) => {
+    socket.on('cube_move', (data: { move: string; face: number; direction: number }) => {
       console.log('Cube move:', data);
-      const moveStr = `${data.face}${data.direction === 'prime' ? "'" : ''}`;
+      const moveStr = data.move || `${data.face}${data.direction ? "'" : ''}`;
       setLastMove(moveStr);
       // If we receive moves, cube must be connected
       // Don't automatically set solved=false - let solved events control this
