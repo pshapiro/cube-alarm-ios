@@ -28,7 +28,6 @@ const CubeViewer: React.FC<CubeViewerProps> = ({ moves, cubeState }) => {
         background: 'none',
         'control-panel': 'none',
         puzzle: '3x3x3',
-        visualization: '2D',
         alg: cubeState ? cubeState : moves.join(' '),
       })}
     </div>
