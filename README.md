@@ -40,6 +40,8 @@ Set this address in a `.env` file or export `CUBE_MAC` before launching the serv
 Use the [Raspberry Pi Imager](https://www.raspberrypi.com/software/) to write
 Raspberry Pi OS Lite to a microSD card. Boot the Pi, connect it to your network
 then clone this repo and run `setup_pi.sh`.
+The script installs the project in `~/cube-alarm` for the user that runs it,
+so ensure you execute it as the user that should own the service.
 
 ### Bluetooth
 
