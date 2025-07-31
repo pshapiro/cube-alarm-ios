@@ -7,6 +7,9 @@
 
 set -e  # Exit on any error
 
+# Determine the user running the script
+CURRENT_USER="$(whoami)"
+
 echo "🍓 Starting Raspberry Pi 3B setup for Rubik's Cube Alarm Clock..."
 
 # Colors for output
@@ -108,9 +111,10 @@ print_success "Python dependencies installed"
 
 # Configure BLE permissions
 print_status "Configuring BLE permissions..."
-sudo usermod -a -G bluetooth pi
+sudo usermod -a -G bluetooth "$CURRENT_USER"
 # Set capabilities for Python BLE access
-PYTHON_PATH=$(which python3)
+# Use the real path of python3 for setting capabilities
+PYTHON_PATH=$(readlink -f "$(which python3)")
 sudo setcap cap_net_raw+eip "$PYTHON_PATH"
 print_success "BLE permissions configured"
 
@@ -153,8 +157,8 @@ Wants=bluetooth.target
 
 [Service]
 Type=simple
-User=pi
-Group=pi
+User=${CURRENT_USER}
+Group=${CURRENT_USER}
 WorkingDirectory=$PROJECT_DIR
 Environment=PATH=$PROJECT_DIR/venv/bin
 ExecStart=$PROJECT_DIR/venv/bin/python backend/alarm_server.py
