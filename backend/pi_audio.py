@@ -233,7 +233,7 @@ class PiAudioManager:
                 return self._play_speaker_test(sound_file, alarm_id)
             else:
                 logger.error("❌ No audio method available")
-                return False
+                return self._play_console_beep()
         
         except Exception as e:
             logger.error(f"❌ Error playing alarm sound: {e}")
@@ -422,6 +422,16 @@ class PiAudioManager:
             return process.returncode == 0
         except Exception as e:
             logger.error(f"❌ speaker-test failed: {e}")
+            return False
+
+    def _play_console_beep(self) -> bool:
+        """Fallback beep using the console bell character."""
+        try:
+            print("\a", end="", flush=True)
+            time.sleep(0.2)
+            return True
+        except Exception as e:
+            logger.error(f"❌ Console beep failed: {e}")
             return False
     
     def test_audio(self) -> bool:

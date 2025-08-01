@@ -10,8 +10,15 @@ This project turns a GAN Bluetooth cube into an alarm clock. When the alarm ring
    ```
 2. Run the server
    ```bash
-   python backend/alarm_server.py
-   ```
+  python backend/alarm_server.py
+  ```
+
+### Custom alarm sound
+
+The audio manager loads the alarm sound from the path stored in the
+`ALARM_SOUND_FILE` environment variable.  If this variable is not set, it
+defaults to `sounds/alarm.wav` relative to the project root.  Adjust this
+variable to use a custom sound file.
 
 ## Frontend (React)
 
