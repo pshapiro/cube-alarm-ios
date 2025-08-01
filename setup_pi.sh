@@ -160,7 +160,9 @@ Type=simple
 User=${CURRENT_USER}
 Group=${CURRENT_USER}
 WorkingDirectory=$PROJECT_DIR
-Environment=PATH=$PROJECT_DIR/venv/bin
+# Ensure system binaries like aplay are accessible
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PROJECT_DIR/venv/bin
+EnvironmentFile=$PROJECT_DIR/.env
 ExecStart=$PROJECT_DIR/venv/bin/python backend/alarm_server.py
 Restart=always
 RestartSec=10
