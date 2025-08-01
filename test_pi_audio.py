@@ -10,6 +10,11 @@ import sys
 import os
 import time
 
+# Ensure alarm sound path matches PiAudioManager logic
+if not os.environ.get("ALARM_SOUND_FILE"):
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    os.environ["ALARM_SOUND_FILE"] = os.path.join(base_dir, "sounds", "alarm.wav")
+
 # Add backend directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
 
