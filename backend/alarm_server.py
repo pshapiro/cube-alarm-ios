@@ -47,13 +47,18 @@ class Alarm:
 
 class AlarmManager:
     """Manages alarm scheduling and triggering."""
-    
+
+    ALARM_FILE = "alarms.json"
+
     def __init__(self):
         self.alarms: Dict[str, Alarm] = {}
         self.active_alarms: Set[str] = set()
         self.cube_solved = False
         self.cube_connected = False
         self.last_cube_state = ""
+
+        # Load any saved alarms from disk
+        self._load_alarms()
         
         # Initialize shared audio manager for Pi audio playback
         try:
@@ -63,12 +68,38 @@ class AlarmManager:
         except Exception as e:
             logger.warning(f"⚠️ Could not initialize PiAudioManager: {e}")
             self.audio_manager = None
+
+    def _save_alarms(self) -> None:
+        """Persist alarms to disk."""
+        try:
+            with open(self.ALARM_FILE, "w") as f:
+                json.dump([asdict(a) for a in self.alarms.values()], f)
+        except Exception as e:
+            logger.error(f"❌ Failed to save alarms: {e}")
+
+    def _load_alarms(self) -> None:
+        """Load alarms from disk if the file exists."""
+        try:
+            with open(self.ALARM_FILE) as f:
+                data = json.load(f)
+                for item in data:
+                    alarm = Alarm(**item)
+                    self.alarms[alarm.id] = alarm
+                    if alarm.enabled:
+                        self._schedule_alarm(alarm)
+            if self.alarms:
+                logger.info(f"✅ Loaded {len(self.alarms)} alarms from {self.ALARM_FILE}")
+        except FileNotFoundError:
+            logger.info("ℹ️ No saved alarms found - starting fresh")
+        except Exception as e:
+            logger.error(f"❌ Failed to load alarms: {e}")
         
     def add_alarm(self, alarm: Alarm) -> bool:
         """Add a new alarm."""
         self.alarms[alarm.id] = alarm
         if alarm.enabled:
             self._schedule_alarm(alarm)
+        self._save_alarms()
         return True
     
     def update_alarm(self, alarm_id: str, updates: dict) -> bool:
@@ -88,7 +119,8 @@ class AlarmManager:
             self._schedule_alarm(alarm)
         else:
             self._unschedule_alarm(alarm)
-        
+
+        self._save_alarms()
         return True
     
     def delete_alarm(self, alarm_id: str) -> bool:
@@ -98,6 +130,7 @@ class AlarmManager:
         
         self._unschedule_alarm(self.alarms[alarm_id])
         del self.alarms[alarm_id]
+        self._save_alarms()
         return True
     
     def get_alarms(self) -> List[Dict]:
