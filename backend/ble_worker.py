@@ -181,21 +181,11 @@ async def _handle_cube_event(event: CubeEvent) -> None:
             except Exception as e:
                 _log(f"❌ Error in move callback: {e}")
         
-        # Check for solve after move
-        if _connection and _connection.is_solved():
-            _log("🎉 Cube solved!")  # Re-enabled from working commit 977e6c4
-            if socketio:
-                socketio.emit("solved", {"timestamp": time.time()})
-            
-            # Call solve callbacks
-            _log(f"🎯 DEBUG: Calling {len(_solve_callbacks)} solve callbacks")
-            for callback in _solve_callbacks:
-                try:
-                    _log(f"🎯 DEBUG: Calling solve callback: {callback}")
-                    callback()
-                    _log(f"✅ DEBUG: Solve callback completed successfully")
-                except Exception as e:
-                    _log(f"❌ Error in solve callback: {e}")
+        # Facelet updates provide reliable solved state detection. Checking the
+        # connection state immediately after a move can report "solved" before
+        # the facelets data arrives, resulting in false solved events.  The
+        # solved check on move events has therefore been removed and solved
+        # detection now relies solely on facelet events.
     
     elif isinstance(event, FaceletsEvent):
         _log(f"Facelets update (serial: {event.serial})")
