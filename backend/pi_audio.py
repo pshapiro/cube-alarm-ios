@@ -98,8 +98,12 @@ class PiAudioManager:
         if sound_file:
             sound_path = sound_file
         else:
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            sound_path = os.path.join(base_dir, 'sounds', 'alarm.wav')
+            env_path = os.environ.get('ALARM_SOUND_FILE')
+            if env_path:
+                sound_path = env_path
+            else:
+                base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                sound_path = os.path.join(base_dir, 'sounds', 'alarm.wav')
         logger.info(f"🔊 Starting alarm sound for ID: {alarm_id} with file: {sound_path}")
         logger.info(f"🔊 DEBUG: Sound file exists: {os.path.exists(sound_path)}")
         logger.info(f"🔊 DEBUG: Current working directory: {os.getcwd()}")
@@ -423,8 +427,12 @@ class PiAudioManager:
     def test_audio(self) -> bool:
         """Test audio output."""
         logger.info(f"🔊 Testing audio output using method: {self.audio_method}")
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        sound_file = os.path.join(base_dir, 'sounds', 'alarm.wav')
+        env_path = os.environ.get('ALARM_SOUND_FILE')
+        if env_path:
+            sound_file = env_path
+        else:
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            sound_file = os.path.join(base_dir, 'sounds', 'alarm.wav')
         return self._play_alarm_sound_once(sound_file)
 
 # Global audio manager instance
