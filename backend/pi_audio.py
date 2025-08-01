@@ -92,7 +92,14 @@ class PiAudioManager:
             logger.info(f"🔊 Alarm {alarm_id} already playing")
             return True
             
-        sound_path = sound_file or 'sounds/alarm.wav'
+        # Resolve the alarm sound path relative to the project root so that
+        # systemd or other launch methods using a different working directory
+        # can still locate the audio file reliably.
+        if sound_file:
+            sound_path = sound_file
+        else:
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            sound_path = os.path.join(base_dir, 'sounds', 'alarm.wav')
         logger.info(f"🔊 Starting alarm sound for ID: {alarm_id} with file: {sound_path}")
         logger.info(f"🔊 DEBUG: Sound file exists: {os.path.exists(sound_path)}")
         logger.info(f"🔊 DEBUG: Current working directory: {os.getcwd()}")
@@ -112,6 +119,11 @@ class PiAudioManager:
         
         self.active_alarms[alarm_id] = alarm_thread
         return True
+
+    # Backwards compatible wrapper expected by older interfaces
+    def start_alarm_sound(self, alarm_id: str, alarm_label: str = "Alarm") -> bool:
+        """Public API used by helper functions and tests."""
+        return self.play_alarm_sound(alarm_id)
     
     def stop_alarm_sound(self, alarm_id: str) -> bool:
         """Stop playing alarm sound for given alarm ID."""
