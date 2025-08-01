@@ -112,7 +112,7 @@ class PiAudioManager:
         # Create and start alarm thread
         alarm_thread = threading.Thread(
             target=self._alarm_sound_loop,
-            args=(alarm_id, alarm_id, stop_event),
+            args=(alarm_id, alarm_id, sound_path, stop_event),
             daemon=True
         )
         alarm_thread.start()
@@ -191,13 +191,13 @@ class PiAudioManager:
         for alarm_id in alarm_ids:
             self.stop_alarm_sound(alarm_id)
     
-    def _alarm_sound_loop(self, alarm_id: str, alarm_label: str, stop_event: threading.Event):
+    def _alarm_sound_loop(self, alarm_id: str, alarm_label: str, sound_path: str, stop_event: threading.Event):
         """Main alarm sound loop - runs until alarm is stopped."""
         logger.info(f"🎵 Starting alarm sound loop for: {alarm_label}")
         
         try:
             # Start the continuous audio playback
-            success = self._play_alarm_sound_once(alarm_id)
+            success = self._play_alarm_sound_once(sound_path, alarm_id)
             if not success:
                 logger.error(f"❌ Failed to start alarm sound for {alarm_label}")
                 return
@@ -214,19 +214,19 @@ class PiAudioManager:
             # This prevents race condition where stop_alarm_sound can't find the process
             logger.info(f"🔇 Alarm sound loop ended for: {alarm_label}")
     
-    def _play_alarm_sound_once(self, alarm_id: str = None) -> bool:
+    def _play_alarm_sound_once(self, sound_file: str, alarm_id: str = None) -> bool:
         """Play alarm sound once using the best available method."""
         try:
             if self.audio_method == 'pygame':
-                return self._play_pygame(alarm_id)
+                return self._play_pygame(sound_file)
             elif self.audio_method == 'aplay':
-                return self._play_aplay(alarm_id)
+                return self._play_aplay(sound_file, alarm_id)
             elif self.audio_method == 'paplay':
-                return self._play_paplay(alarm_id)
+                return self._play_paplay(sound_file)
             elif self.audio_method == 'afplay':
-                return self._play_afplay(alarm_id)
+                return self._play_afplay(sound_file)
             elif self.audio_method == 'speaker-test':
-                return self._play_speaker_test(alarm_id)
+                return self._play_speaker_test(sound_file, alarm_id)
             else:
                 logger.error("❌ No audio method available")
                 return False
@@ -235,7 +235,7 @@ class PiAudioManager:
             logger.error(f"❌ Error playing alarm sound: {e}")
             return False
     
-    def _play_pygame(self) -> bool:
+    def _play_pygame(self, sound_file: str) -> bool:
         """Play alarm sound using pygame."""
         try:
             import pygame
@@ -245,7 +245,6 @@ class PiAudioManager:
                 pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
             
             # Check for custom alarm sound file
-            sound_file = os.environ.get('ALARM_SOUND_FILE', 'sounds/alarm.wav')
             if os.path.exists(sound_file):
                 sound = pygame.mixer.Sound(sound_file)
                 sound.play()
@@ -291,10 +290,9 @@ class PiAudioManager:
         except Exception as e:
             logger.error(f"❌ Error generating beep: {e}")
     
-    def _play_aplay(self, alarm_id: str = None) -> bool:
+    def _play_aplay(self, sound_file: str, alarm_id: str = None) -> bool:
         """Play alarm sound using aplay (ALSA)."""
         try:
-            sound_file = os.environ.get('ALARM_SOUND_FILE', 'sounds/alarm.wav')
             logger.info(f"🔊 DEBUG: Attempting aplay with file: {sound_file}")
             
             if os.path.exists(sound_file):
@@ -341,35 +339,40 @@ class PiAudioManager:
             else:
                 # Use speaker-test as fallback - this is more reliable than missing WAV files
                 logger.info(f"🔊 Sound file {sound_file} not found, using speaker-test fallback")
-                return self._play_speaker_test(alarm_id)
+                return self._play_speaker_test(sound_file, alarm_id)
         except subprocess.CalledProcessError as e:
             logger.error(f"❌ aplay CalledProcessError: {e}")
-            return self._play_speaker_test(alarm_id)
+            return self._play_speaker_test(sound_file, alarm_id)
         except Exception as e:
             logger.error(f"❌ aplay unexpected error: {e}")
             return False
     
-    def _play_paplay(self) -> bool:
+    def _play_paplay(self, sound_file: str) -> bool:
         """Play alarm sound using paplay (PulseAudio)."""
         try:
-            sound_file = os.environ.get('ALARM_SOUND_FILE', 'sounds/alarm.wav')
             if os.path.exists(sound_file):
                 subprocess.run(['paplay', sound_file], check=True,
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             else:
                 # Use speaker-test as fallback
-                return self._play_speaker_test()
+                return self._play_speaker_test(sound_file, None)
             return True
         except subprocess.CalledProcessError:
             return False
     
-    def _play_afplay(self) -> bool:
+    def _play_afplay(self, sound_file: str) -> bool:
         """Play alarm sound using afplay (macOS)."""
         try:
-            # Try multiple system sounds on macOS
+            # If a specific sound file exists use it first
+            if os.path.exists(sound_file):
+                subprocess.run(['afplay', sound_file], check=True, timeout=5,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                return True
+
+            # Fallback to system sounds on macOS
             sound_paths = [
                 '/System/Library/Sounds/Alarm.aiff',
-                '/System/Library/Sounds/Glass.aiff', 
+                '/System/Library/Sounds/Glass.aiff',
                 '/System/Library/Sounds/Ping.aiff',
                 '/System/Library/Sounds/Sosumi.aiff'
             ]
@@ -389,7 +392,7 @@ class PiAudioManager:
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
             return False
     
-    def _play_speaker_test(self, alarm_id: str = None) -> bool:
+    def _play_speaker_test(self, sound_file: str = None, alarm_id: str = None) -> bool:
         """Play alarm sound using speaker-test (fallback)."""
         try:
             # Force output to analog audio (card 0) and play a 2-second 800Hz tone
@@ -420,7 +423,9 @@ class PiAudioManager:
     def test_audio(self) -> bool:
         """Test audio output."""
         logger.info(f"🔊 Testing audio output using method: {self.audio_method}")
-        return self._play_alarm_sound_once()
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        sound_file = os.path.join(base_dir, 'sounds', 'alarm.wav')
+        return self._play_alarm_sound_once(sound_file)
 
 # Global audio manager instance
 _audio_manager: Optional[PiAudioManager] = None
