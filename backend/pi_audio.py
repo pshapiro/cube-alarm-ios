@@ -314,12 +314,15 @@ class PiAudioManager:
                 process = subprocess.Popen(['sh', '-c', f'while true; do aplay -D plughw:0,0 "{sound_file}"; done'],
                                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                          preexec_fn=os.setsid, env=clean_env)  # Create new process group with clean env
-                
+
                 # Store process reference if alarm_id provided (for termination)
                 if alarm_id:
                     self.active_processes[alarm_id] = process
                     logger.info(f"🔊 DEBUG: Stored process {process.pid} for alarm {alarm_id}")
-                
+
+                # Give process a moment to fail fast if there's an audio error
+                time.sleep(0.1)
+
                 # Check if process is still running (don't wait for completion)
                 if process.poll() is None:
                     # Process is still running, which is good for continuous playback
