@@ -243,15 +243,19 @@ class AlarmManager:
     def _pre_alarm_ble_activation(self, alarm_id: str):
         """Activate BLE worker 10 seconds before alarm to ensure connection."""
         logger.info(f"🔋 Pre-alarm BLE activation for alarm {alarm_id}")
-        
-        # Import BLE worker control functions
-        from ble_worker import start_ble_worker, is_ble_worker_running
-        
-        if not is_ble_worker_running():
-            logger.info("🚀 Starting BLE worker for upcoming alarm...")
-            start_ble_worker(socketio)
-        else:
-            logger.info("⚠️ BLE worker already running")
+
+        try:
+            # Import BLE worker control functions
+            from ble_worker import start_ble_worker, is_ble_worker_running
+
+            if not is_ble_worker_running():
+                logger.info("🚀 Starting BLE worker for upcoming alarm...")
+                start_ble_worker(socketio)
+            else:
+                logger.info("⚠️ BLE worker already running")
+        except Exception as e:
+            # If BLE activation fails, log the error but allow scheduler to continue
+            logger.error(f"❌ Error during pre-alarm BLE activation for {alarm_id}: {e}")
     
     def _check_ble_worker_shutdown(self):
         """Check if BLE worker should be stopped to save battery."""
@@ -566,8 +570,12 @@ def setup_ble_callbacks():
 def run_scheduler():
     """Run the alarm scheduler in a separate thread."""
     while True:
-        schedule.run_pending()
-        threading.Event().wait(1)
+        try:
+            schedule.run_pending()
+        except Exception as e:
+            logger.error(f"❌ Scheduler error: {e}")
+        finally:
+            threading.Event().wait(1)
 
 if __name__ == '__main__':
     # Smart BLE Connection Strategy: Setup callbacks but don't start BLE worker
