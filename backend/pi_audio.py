@@ -11,7 +11,8 @@ import subprocess
 import threading
 import time
 import logging
-from typing import Optional, Dict
+import re
+from typing import Optional, Dict, Tuple
 import platform
 
 logger = logging.getLogger(__name__)
@@ -28,8 +29,16 @@ class PiAudioManager:
 
         if self.is_pi:
             self.audio_method = 'aplay'
-        
-        logger.info(f"🔊 Audio Manager initialized - Platform: {'Pi' if self.is_pi else platform.system()}, Method: {self.audio_method}")
+
+        # Detect analog ALSA device (card and device numbers) so we can force
+        # playback through the headphone jack instead of HDMI.  If detection
+        # fails, fall back to card 0, device 0.
+        self.alsa_card, self.alsa_device = self._detect_alsa_device()
+        self.alsa_output = f"plughw:{self.alsa_card},{self.alsa_device}"
+
+        logger.info(
+            f"🔊 Audio Manager initialized - Platform: {'Pi' if self.is_pi else platform.system()}, Method: {self.audio_method}, ALSA output: {self.alsa_output}"
+        )
     
     def _detect_raspberry_pi(self) -> bool:
         """Detect if running on Raspberry Pi."""
@@ -83,6 +92,26 @@ class PiAudioManager:
             return shutil.which(command) is not None
         except Exception:
             return False
+
+    def _detect_alsa_device(self) -> Tuple[str, str]:
+        """Detect the ALSA card/device numbers for the analog headphone jack.
+
+        Returns (card, device) as strings. Defaults to ('0', '0') if detection
+        fails or if aplay is unavailable.
+        """
+        try:
+            output = subprocess.check_output(['aplay', '-l'], text=True)
+            for line in output.splitlines():
+                # Look for a device that represents the headphone jack.  On
+                # modern Raspberry Pi systems this typically contains the word
+                # "Headphones".
+                if 'Headphones' in line or 'bcm2835' in line:
+                    match = re.search(r'card (\d+):.*device (\d+):', line)
+                    if match:
+                        return match.group(1), match.group(2)
+        except Exception as e:
+            logger.debug(f"ALSA device detection failed: {e}")
+        return '0', '0'
     
     def play_alarm_sound(self, alarm_id: str, sound_file: str = None) -> bool:
         """Play alarm sound continuously until stopped."""
@@ -300,20 +329,24 @@ class PiAudioManager:
             logger.info(f"🔊 DEBUG: Attempting aplay with file: {sound_file}")
             
             if os.path.exists(sound_file):
-                # Force output to analog audio (card 0) to avoid HDMI routing issues
+                # Force output to the detected analog audio device to avoid HDMI routing issues
                 # Use a loop to repeat the audio file continuously
-                logger.info(f"🔊 DEBUG: Starting aplay subprocess for {sound_file} (looped)")
-                
+                logger.info(f"🔊 DEBUG: Starting aplay subprocess for {sound_file} on {self.alsa_output} (looped)")
+
                 # Create clean environment without PulseAudio variables that conflict with ALSA
                 clean_env = os.environ.copy()
                 clean_env.pop('PULSE_RUNTIME_PATH', None)
                 clean_env.pop('PULSE_RUNTIME_DIR', None)
-                clean_env['ALSA_PCM_CARD'] = '0'  # Force ALSA to use card 0 (analog headphone jack)
-                clean_env['ALSA_PCM_DEVICE'] = '0'  # Force ALSA to use device 0
-                
-                process = subprocess.Popen(['sh', '-c', f'while true; do aplay -D plughw:0,0 "{sound_file}"; done'],
-                                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                         preexec_fn=os.setsid, env=clean_env)  # Create new process group with clean env
+                clean_env['ALSA_PCM_CARD'] = self.alsa_card  # Force ALSA to use detected card
+                clean_env['ALSA_PCM_DEVICE'] = self.alsa_device  # Force ALSA to use detected device
+
+                process = subprocess.Popen(
+                    ['sh', '-c', f'while true; do aplay -D {self.alsa_output} "{sound_file}"; done'],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    preexec_fn=os.setsid,
+                    env=clean_env,
+                )  # Create new process group with clean env
 
                 # Store process reference if alarm_id provided (for termination)
                 if alarm_id:
@@ -402,9 +435,12 @@ class PiAudioManager:
     def _play_speaker_test(self, sound_file: str = None, alarm_id: str = None) -> bool:
         """Play alarm sound using speaker-test (fallback)."""
         try:
-            # Force output to analog audio (card 0) and play a 2-second 800Hz tone
-            process = subprocess.Popen(['speaker-test', '-D', 'plughw:0,0', '-t', 'sine', '-f', '800', '-l', '2'], 
-                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # Force output to the detected analog audio device and play a 2-second 800Hz tone
+            process = subprocess.Popen(
+                ['speaker-test', '-D', self.alsa_output, '-t', 'sine', '-f', '800', '-l', '2'],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
             
             # Store process reference if alarm_id provided (for termination)
             if alarm_id:
