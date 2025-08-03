@@ -106,6 +106,16 @@ sudo systemctl enable nginx
 sudo systemctl start nginx
 ```
 
+## iOS App (SwiftUI)
+
+A standalone SwiftUI alarm clock lives in the `ios` directory. It schedules local notifications directly on the device and does not require the Python backend or a Raspberry Pi.
+
+1. Open the Swift files in Xcode 15 or later.
+2. Build and run the app in the iOS Simulator or on a physical device.
+3. Grant notification permission when prompted.
+
+> The Linux environment used for this repository cannot compile SwiftUI targets; no automated tests are included.
+
 ## Hardware
 
 You can purchase the GAN cube used for this project here: [GAN Smart Cube](https://amzn.to/4lgux9D).
